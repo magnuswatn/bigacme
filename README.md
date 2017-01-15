@@ -7,8 +7,8 @@ It can be used to get certificates from a ACME compatible CA, and auto-renew the
 It's a work in progress...
 
 ## Prerequisites
-F5 Big-IP, version 11 or higher
-A server with access to both the Big-IP and the CA
+* F5 Big-IP, version 11 or higher
+* A server with access to both the Big-IP and the CA
 
 ## How it works
 You manually create a CSR on the Big-IP and then tells bigacme to turn it into a certiticate. Bigacme retrieves it, get challenges for the domains from the CA, configures the Big-IP to answer those challenges, and then gets the certificate from the CA and installs it om the Big-IP. The process will happen again when it is time to renew the certificate. The private keys are generated on the Big-IP and never leaves it.
