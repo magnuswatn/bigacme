@@ -39,7 +39,7 @@ def check_for_renewals(configuration):
     return renewals
 
 def load_associated_csr(certname):
-    """Loads the cert associated with the specified csr file"""
+    """Loads the csr associated with the specified cert file"""
     csrname = '%scsr' % certname[:-3]
     with open('./csr/%s' % csrname, 'r') as openfile:
         csr = openfile.read()
