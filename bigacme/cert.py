@@ -123,6 +123,22 @@ def load_renewed_cert_from_disk(partition, alias):
         cert_pem = openfile.read()
     return cert_pem
 
+def load_cert_from_disk(partition, alias):
+    """
+    Loads a cert from disk. This can be either a normal cert or a cert about to be installed.
+    """
+    filename = './cert/%s_%s.cer' % (partition, alias)
+    to_be_installed_filename = './cert/to_be_installed/%s_%s.cer' % (partition, alias)
+    if os.path.isfile(filename):
+        file_to_be_read = filename
+    elif os.path.isfile(to_be_installed_filename):
+        file_to_be_read = to_be_installed_filename
+    else:
+        raise CertificateNotFoundError
+    with open(file_to_be_read, 'r') as openfile:
+        cert_pem = openfile.read()
+    return cert_pem
+
 def load_csr_from_disk(partition, alias):
     """Loads a csr from disk"""
     filename = './csr/%s_%s.csr' % (partition, alias)

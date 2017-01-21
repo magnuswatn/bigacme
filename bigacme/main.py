@@ -172,7 +172,26 @@ def remove(args, configuration):
 
 def revoke(args, configuration):
     """Revokes a certificate"""
-    sys.exit("Not implemented")
+    print "This will REVOKE the specified certificate. It will no longer be usable.\r\n"
+    print ("You should ONLY do this if the private key has been compromised. It is not "
+           "necessary if the certificate is just beeing retired.")
+    print "Are you sure you want to continue? Type REVOKE (all caps) if you are sure."
+
+    choice = raw_input()
+    if choice != 'REVOKE':
+        sys.exit('Exiting...')
+    logger.info('User %s started revoking cert %s in partition %s', getpass.getuser(),
+                args.csrname, args.partition)
+    try:
+        certificate = cert.load_cert_from_disk(args.partition, args.csrname)
+    except cert.CertificateNotFoundError:
+        sys.exit("The specified certificate was not found.")
+
+    key = config.get_account_key(configuration)
+    acme_client = ca.get_client(configuration, key)
+    ca.revoke_certifciate(configuration, acme_client, certificate)
+    cert.remve_cert(args.partition, args.csrname)
+    print "Certificate %s in partition %s revoked" % (args.csrname, args.partition)
 
 def test(args, configuration):
     """Tests the connections to the load balancer and the ca"""

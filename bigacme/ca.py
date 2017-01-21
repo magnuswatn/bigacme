@@ -122,3 +122,11 @@ def get_certificate_from_ca(configuration, acme_client, csr_pem, authorizations)
         chain.append(chaincert._dump(OpenSSL.crypto.FILETYPE_PEM)) # pylint: disable=protected-access
     _unset_proxy(configuration)
     return cert, chain
+
+def revoke_certifciate(configuration, acme_client, cert_pem):
+    """Revokes a certificate"""
+    _set_proxy(configuration)
+    cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_pem)
+    jose_cert = jose.util.ComparableX509(cert)
+    acme_client.revoke(jose_cert)
+    _unset_proxy(configuration)
