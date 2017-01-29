@@ -32,7 +32,7 @@ def connect(config):
                         verify=True)
     if config.lb2:
         lb2 = bigsuds.BIGIP(config.lb2, config.lb_user, config.lb_pwd,
-                            verify=config.lb_verify)
+                            verify=True)
         lb1status = lb1.System.Failover.get_failover_state()
         lb2status = lb2.System.Failover.get_failover_state()
 
