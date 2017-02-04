@@ -14,6 +14,7 @@ from . import config
 from . import cert
 from . import ca
 from . import lb
+from . import version
 
 # pylint: disable=W0613
 
@@ -61,6 +62,10 @@ def main():
         "config", help="Generate a folder structure with config files")
     parser_config.set_defaults(func=new_config)
 
+    parser_config = subparsers.add_parser(
+        "version", help="Prints the version number and exits.")
+    parser_config.set_defaults(func=print_version)
+
     args = parser.parse_args()
     try:
         os.chdir(os.path.abspath(args.config_dir))
@@ -69,7 +74,7 @@ def main():
             sys.exit("Could not locate the specified configuration folder")
         else:
             raise
-    if args.operation != "config":
+    if args.operation not in ['config', 'version']:
         if not config.check_configfiles():
             sys.exit("Could not find the configuration files in the specified folder")
         logging.config.fileConfig("./config/logging.ini", disable_existing_loggers=False)
@@ -203,6 +208,10 @@ def test(args, configuration):
         logger.exception("Could not connect to the CA:")
     else:
         print "The connection to the CA was successfull"
+
+def print_version(args, configuration):
+    """Prints the version number and exits"""
+    print version.__version__
 
 def register(args, configuration):
     """Genereates a account key, and registeres with the specified CA"""

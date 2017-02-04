@@ -1,11 +1,13 @@
 from setuptools import setup, find_packages
 
+execfile('./bigacme/version.py')
+
 setup(
     name='bigacme',
     author='Magnus Watn',
     description='An ACME client for F5 Big-IP',
     long_description='Command-line program for installing and renewing certificates from an ACME CA on a F5 Big-IP',
-    version='0.2',
+    version=__version__,
     license='MIT',
     packages=find_packages(),
     install_requires=[
