@@ -75,13 +75,7 @@ def main():
         logging.config.fileConfig("./config/logging.ini", disable_existing_loggers=False)
         try:
             the_config = config.read_configfile('./config/config.ini')
-        except NoSectionError as error:
-            sys.exit(("The configuration files was found, but was not complete. "
-                      "The error was: %s" % error.message))
-        except NoOptionError as error:
-            sys.exit(("The configuration files was found, but was not complete. "
-                      "The error was: %s" % error.message))
-        except ValueError as error:
+        except (NoSectionError, NoOptionError, ValueError) as error:
             sys.exit(("The configuration files was found, but was not complete. "
                       "The error was: %s" % error.message))
     else:
