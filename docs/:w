@@ -20,7 +20,7 @@ verify=enable
 
 After this, the CA that issued the certificates for the Big-IP must be trusted (add it to /etc/pki/ca-trust/source/anchors and run update-ca-trust).
 
-Then install some extra needed packages:
+Install some extra needed packages:
 
 `# yum install python-virtualenv libffi-devel gcc git openssl-devel`
 
@@ -51,7 +51,7 @@ $ source /opt/bigacme/venvs/1/bin/activate
 Since the virtualenv version in RHEL is kinda old, we need to upgrade pip and setuptools:
 
 ```
-$ pip install --upgrade pip
+`$ pip install --upgrade pip
 $ pip install --upgrade setuptools
 ```
 
@@ -106,10 +106,9 @@ Add the iRule to the relevant virtual server and create a csr on the Big-IP. Her
 
 Log into the server, run:
 
-```
-$ testbigip
-$ bigacme new ImportantApp ImportantApp.no_LetsEncrypt
-```
+`$ testbigip`
+
+`$ bigacme new ImportantApp ImportantApp.no_LetsEncrypt`
 
 This will issue a certificate. And it will be renewed according to the config and the cron job schedule.
 
