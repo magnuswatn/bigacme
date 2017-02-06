@@ -21,13 +21,17 @@ verify=enable
 After this, the CA that issued the certificates for the Big-IP must be trusted (add it to /etc/pki/ca-trust/source/anchors and run update-ca-trust).
 
 Install some extra needed packages:
+
 `# yum install python-virtualenv libffi-devel gcc git openssl-devel`
 
 Add an user for bigacme:
+
 `# useradd bigacme`
 
 Create configuration folders:
+
 `# mkdir -p /opt/bigacme/venvs /opt/bigacme/configs`
+
 `# chown bigacme:bigacme /opt/bigacme -R`
 
 Users that should have the privilege to issue certificate should be added to the bigacme group. The rest of this guide should be done as the bigacme user.
@@ -44,6 +48,7 @@ Create a virtual python environment and activate it:
 Since the virtualenv version in RHEL is kinda old, we need to upgrade pip and setuptools:
 
 `$ pip install --upgrade pip`
+
 `$ pip install --upgrade setuptools`
 
 We can now install bigacme. Install the smoking fresh version from Github:
@@ -56,9 +61,11 @@ Now we are ready to configuration for bigacme. Repeat these steps for every Big-
 
 Create a config folder:
 
-`$ mkdir /opt/bigacme/configs/bigip-test`
-`$ cd /opt/bigacme/configs/bigip-test`
-`$ bigacme config`
+```
+$ mkdir /opt/bigacme/configs/bigip-test
+$ cd /opt/bigacme/configs/bigip-test
+$ bigacme config
+```
 
 Change the config in config/config.ini accordin to your needs (see the "Configure bigacme" section in the installation doc). 
 
@@ -68,13 +75,15 @@ Register with the CA:
 
 To make it easier to activate the virtualenv we can make an alias. Add the following to /etc/profile.d/bigacme.sh
 
-```alias bigip-test='if [ "$(type -t deactivate)" ]; then deactivate; fi; source /opt/bigacme/venvs/1/bin/activate; cd /opt/bigacme/configs/bigip-test/'```
+```bash
+alias bigip-test='if [ "$(type -t deactivate)" ]; then deactivate; fi; source /opt/bigacme/venvs/1/bin/activate; cd /opt/bigacme/configs/bigip-test/'
+```
 
 Now you can run "bigip-test" and it will deactivate the current virtualenv (if in an virtualenv), activate the "1" virtualenv, and change directory to the configuration folder for the test box.
 
 Then we need to add a cron job. Create this script as bigip-test-cron.sh in bigacme's home folder (with execute permission):
 
-```
+```bash
 #/bin/bash
 source /etc/profile.d/bigacme.sh
 bigip-test
@@ -91,8 +100,10 @@ This will check for renewals every day (adjust as needed).
 
 Add the iRule to the relevant virtual server and create a csr on the Big-IP. Here we assume the csr is called "ImportantApp.no_LetsEncrypt" and it's in the partition "ImportantApp".
 
-Log into the server, run 
+Log into the server, run:
+
 `$ testbigip`
+
 `$ bigacme new ImportantApp ImportantApp.no_LetsEncrypt`
 
 This will issue a certificate. And it will be renewed according to the config and the cron job schedule.
