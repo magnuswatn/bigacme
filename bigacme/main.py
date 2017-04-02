@@ -179,6 +179,18 @@ def revoke(args, configuration):
     choice = raw_input()
     if choice != 'REVOKE':
         sys.exit('Exiting...')
+
+    choice = ''
+    while choice not in ('0', '1', '3', '4', '5'):
+        print "What is the reason you are revoking this cert?"
+        print "0) Unspecified"
+        print "1) Key compromise"
+        print "3) Affiliation changed"
+        print "4) Superseded"
+        print "5) Cessation of operation"
+        choice = raw_input().replace(')', '')
+    reason = int(choice)
+
     logger.info('User %s started revoking cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
     try:
@@ -188,7 +200,7 @@ def revoke(args, configuration):
 
     key = config.get_account_key(configuration)
     acme_client = ca.get_client(configuration, key)
-    ca.revoke_certifciate(configuration, acme_client, certificate)
+    ca.revoke_certifciate(configuration, acme_client, certificate, reason)
     cert.remve_cert(args.partition, args.csrname)
     print "Certificate %s in partition %s revoked" % (args.csrname, args.partition)
 
