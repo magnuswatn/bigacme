@@ -165,7 +165,7 @@ def remove(args, configuration):
     logger.info('User %s started removing cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
     try:
-        cert.remve_cert(args.partition, args.csrname)
+        cert.remove_cert(args.partition, args.csrname)
     except cert.CertificateNotFoundError:
         sys.exit("The specified certificate was not found")
 
@@ -201,7 +201,7 @@ def revoke(args, configuration):
     key = config.get_account_key(configuration)
     acme_client = ca.get_client(configuration, key)
     ca.revoke_certifciate(configuration, acme_client, certificate, reason)
-    cert.remve_cert(args.partition, args.csrname)
+    cert.remove_cert(args.partition, args.csrname)
     print "Certificate %s in partition %s revoked" % (args.csrname, args.partition)
 
 def test(args, configuration):

@@ -181,7 +181,7 @@ def get_name_from_filename(filename):
     name = filename.split('_', 1)[1][:-4]
     return partition, name
 
-def remve_cert(partition, name):
+def remove_cert(partition, name):
     """Removes a certificate so that it won't get renewed"""
     cert_name = './cert/%s_%s.cer' % (partition, name)
     uninstalled_cert_name = './cert/to_be_installed/%s_%s.cer' % (partition, name)
