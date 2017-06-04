@@ -21,7 +21,7 @@ def check_configfiles():
     """Checks that the configuration files and folders are in place"""
     return (os.path.exists('./config/config.ini') and os.path.exists('./config/logging.ini') and
             os.path.exists('./cert') and os.path.exists('./cert/backup')
-            and os.path.exists('./cert/to_be_installed') and os.path.exists('./csr'))
+            and os.path.exists('./csr'))
 
 def read_configfile(filename):
     """Reads the configfile and creates a config object"""
@@ -130,14 +130,7 @@ def create_account_key(configuration):
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption()
             ))
-    return jose.JWKRSA(key=private_key)
 
-def get_account_key(configuration):
-    """Gets the account key from file and returns it"""
-    with open(configuration.cm_key, "r") as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-            backend=default_backend()
-            )
-    return jose.JWKRSA(key=private_key)
+def delete_account_key(configuration):
+    """Deletes the account key from disk"""
+    os.remove(configuration.cm_key)

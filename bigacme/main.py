@@ -20,50 +20,48 @@ from . import version
 
 logger = logging.getLogger(__name__)
 
-
 def main():
     """Parses the parameters and calls the right function"""
     parser = argparse.ArgumentParser(description='ACME client for Big-IP')
     parser.add_argument('--config-dir', default=".",
-                        help="The config dir to use. Defaults to the current folder")
+                        help="the config dir to use. Defaults to the current folder")
     subparsers = parser.add_subparsers(help="The operation you want to do:", dest="operation")
 
     parser_new = subparsers.add_parser(
-        "new", help="Request a new certificate")
-    parser_new.add_argument("partition", help="The name of partition on the Big-IP")
-    parser_new.add_argument("csrname", help="The name of the csr on the Big-IP")
+        "new", help="request a new certificate")
+    parser_new.add_argument("partition", help="the name of partition on the Big-IP")
+    parser_new.add_argument("csrname", help="the name of the csr on the Big-IP")
     parser_new.set_defaults(func=new_cert)
 
     parser_remove = subparsers.add_parser(
-        "remove", help="Removes a certificate, so that it won't be renewd")
-    parser_remove.add_argument("partition", help="The name of partition on the Big-IP")
-    parser_remove.add_argument("csrname", help="The name of the csr on the Big-IP")
+        "remove", help="remove a certificate, so that it won't be renewd")
+    parser_remove.add_argument("partition", help="the name of partition on the Big-IP")
+    parser_remove.add_argument("csrname", help="the name of the csr on the Big-IP")
     parser_remove.set_defaults(func=remove)
 
     parser_revoke = subparsers.add_parser(
-        "revoke", help="Revokes a certificate")
-    parser_revoke.add_argument("partition", help="The name of partition on the Big-IP")
-    parser_revoke.add_argument("csrname", help="The name of the csr on the Big-IP")
+        "revoke", help="revoke a certificate")
+    parser_revoke.add_argument("partition", help="the name of partition on the Big-IP")
+    parser_revoke.add_argument("csrname", help="the name of the csr on the Big-IP")
     parser_revoke.set_defaults(func=revoke)
 
     parser_renew = subparsers.add_parser(
-        "renew", help="Renew existing certificates")
+        "renew", help="renew existing certificates")
     parser_renew.set_defaults(func=renew)
 
     parser_test = subparsers.add_parser(
-        "test", help="Test connectivity to the CA and the load balancer")
+        "test", help="test connectivity to the CA and the load balancer")
     parser_test.set_defaults(func=test)
 
     parser_register = subparsers.add_parser(
-        "register", help="Generates an account key and registers it with the specified CA")
+        "register", help="generate an account key and register it with the CA")
     parser_register.set_defaults(func=register)
 
     parser_config = subparsers.add_parser(
-        "config", help="Generate a folder structure with config files")
+        "config", help="generate a folder structure with config files")
     parser_config.set_defaults(func=new_config)
 
-    parser_config = subparsers.add_parser(
-        "version", help="Prints the version number and exits.")
+    parser_config = subparsers.add_parser("version", help="show the version number and exit")
     parser_config.set_defaults(func=print_version)
 
     args = parser.parse_args()
@@ -95,10 +93,10 @@ def new_cert(args, configuration):
     """Fetches the specified CSR from the device and retrieves a certificate from the CA"""
     logger.info('User %s started issuance of cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
-    bigip = lb.connect(configuration)
+    bigip = lb.LoadBalancer(configuration)
     print "Getting the CSR from the Big-IP..."
     try:
-        csr = lb.get_csr(bigip, args.partition, args.csrname)
+        csr = bigip.get_csr(args.partition, args.csrname)
     except lb.PartitionNotFoundError:
         logger.error("The partition was not found on the device")
         sys.exit("The specified partition does not seem to exist.")
@@ -110,64 +108,58 @@ def new_cert(args, configuration):
         logger.error("The CSR was not found on the device")
         sys.exit('Could not find the csr on the big-ip. Check the spelling.')
 
-    logger.debug('Saving the csr to disk')
-    cert.save_csr_to_disk(args.partition, args.csrname, csr)
-
+    certobj = cert.Certificate.new(args.partition, args.csrname, csr)
     print "Getting a new certificate from the CA. This may take a while..."
+    acme_ca = ca.CertificateAuthority(configuration)
     try:
-        certificate = _get_new_cert(csr, bigip, args.partition, args.csrname, configuration)
+        certificate, chain = _get_new_cert(acme_ca, bigip, certobj)
     except ca.GetCertificateFailedError as error:
         logger.error("Could not get a certificate from the CA. The error was: %s", error.message)
         sys.exit(("Could not get a certificate from the CA. Is the iRule attached to the "
                   "Virtual Server? The error was: %s" % error.message))
-    cert.save_cert_to_disk(args.partition, args.csrname, certificate)
-    lb.upload_certificate(bigip, args.partition, args.csrname, certificate)
+    certobj.cert, certobj.chain = certificate, chain
+    bigip.upload_certificate(args.partition, args.csrname, certobj.get_pem(configuration.cm_chain))
+    certobj.mark_as_installed()
     print "Done."
 
 def renew(args, configuration):
     """Goes through all the issued certs and renews them if needed"""
-    logger.info('Starting renewal')
-    bigip = lb.connect(configuration)
-
-    renewals = cert.check_for_renewals(configuration)
+    logger.info('Starting renewal process')
+    bigip = lb.LoadBalancer(configuration)
+    acme_ca = ca.CertificateAuthority(configuration)
+    renewals, certs_to_be_installed = cert.get_certs_that_need_action(configuration)
     for renewal in renewals:
-        csr = cert.load_associated_csr(renewal)
-        partition, name = cert.get_name_from_filename(renewal)
-        logger.info('Renewing cert: %s from partition: %s', name, partition)
+        logger.info('Renewing cert: %s from partition: %s', renewal.name, renewal.partition)
         try:
-            certificate = _get_new_cert(csr, bigip, partition, name, configuration)
-        except ca.GetCertificateFailedError:
-            logger.exception("Could not renew certificate %s in partition %s:", name, partition)
+            certificate, chain = _get_new_cert(acme_ca, bigip, renewal)
+        except (ca.GetCertificateFailedError, lb.LoadBalancerError):
+            logger.exception("Could not renew certificate %s in partition %s:",
+                             renewal.name, renewal.partition)
             continue
-        except lb.LoadBalancerError:
-            logger.exception("Could not renew certificate %s in partition %s:", name, partition)
-            continue
-        cert.save_renewed_cert_to_disk(partition, name, certificate)
-        cert.move_cert_to_backup(renewal)
+        renewal.renew(certificate, chain)
 
-    certs_to_be_installed = cert.get_certificate_to_be_installed(configuration)
-    for to_be_installed_cert in certs_to_be_installed:
-        partition, name = cert.get_name_from_filename(to_be_installed_cert)
-        logger.info('Installing cert: %s in partition: %s', name, partition)
-        renewed_cert = cert.load_renewed_cert_from_disk(partition, name)
+    for tbi_cert in certs_to_be_installed:
+        logger.info('Installing cert: %s in partition: %s', tbi_cert.name, tbi_cert.partition)
         try:
-            lb.upload_certificate(bigip, partition, name, renewed_cert)
+            bigip.upload_certificate(tbi_cert.partition, tbi_cert.name,
+                                     tbi_cert.get_pem(configuration.cm_chain))
         except lb.LoadBalancerError:
-            logger.exception("Could not install certificate %s in partition %s:", name, partition)
+            logger.exception("Could not install certificate %s in partition %s:",
+                             tbi_cert.name, tbi_cert.partition)
             continue
-        cert.move_renewed_cert(to_be_installed_cert)
+        tbi_cert.mark_as_installed(None, None)
 
     cert.delete_expired_backups()
-    logger.info('Renewal completed')
+    logger.info('Renewal process completed')
 
 def remove(args, configuration):
     """Removes a certificate so that it won't get renewed"""
-    logger.info('User %s started removing cert %s in partition %s', getpass.getuser(),
-                args.csrname, args.partition)
     try:
-        cert.remove_cert(args.partition, args.csrname)
+        cert.Certificate.get(args.partition, args.csrname).delete()
     except cert.CertificateNotFoundError:
         sys.exit("The specified certificate was not found")
+    logger.info('User %s removed cert %s in partition %s', getpass.getuser(),
+                args.csrname, args.partition)
 
 def revoke(args, configuration):
     """Revokes a certificate"""
@@ -191,30 +183,29 @@ def revoke(args, configuration):
         choice = raw_input().replace(')', '')
     reason = int(choice)
 
-    logger.info('User %s started revoking cert %s in partition %s', getpass.getuser(),
-                args.csrname, args.partition)
     try:
-        certificate = cert.load_cert_from_disk(args.partition, args.csrname)
+        certificate = cert.Certificate.get(args.partition, args.csrname)
     except cert.CertificateNotFoundError:
         sys.exit("The specified certificate was not found.")
 
-    key = config.get_account_key(configuration)
-    acme_client = ca.get_client(configuration, key)
-    ca.revoke_certifciate(configuration, acme_client, certificate, reason)
-    cert.remove_cert(args.partition, args.csrname)
+    acme_ca = ca.CertificateAuthority(configuration)
+    acme_ca.revoke_certifciate(certificate.cert, reason)
+    certificate.delete()
+    logger.info('User %s revoked cert %s in partition %s', getpass.getuser(),
+                args.csrname, args.partition)
     print "Certificate %s in partition %s revoked" % (args.csrname, args.partition)
 
 def test(args, configuration):
     """Tests the connections to the load balancer and the ca"""
     try:
-        lb.connect(configuration)
+        lb.LoadBalancer(configuration)
     except: # pylint: disable=W0702
         print "Could not connect to the load balancer. Check the log."
         logger.exception("Could not connect to the load balancer:")
     else:
         print "The connection to the load balancer was successfull"
     try:
-        ca.get_client(configuration, None)
+        ca.CertificateAuthority(configuration)
     except: # pylint: disable=W0702
         print "Could not connect to the CA. Check the log."
         logger.exception("Could not connect to the CA:")
@@ -240,16 +231,18 @@ def register(args, configuration):
         sys.exit('Wrong mail. Exiting')
 
     try:
-        key = config.create_account_key(configuration)
+        config.create_account_key(configuration)
     except config.KeyAlreadyExistsError:
         sys.exit("Key file already exists. You can not register a key twice. \r\n"
                  "You must delete it to register again.")
-    acme_client = ca.get_client(configuration, key)
+    acme_ca = ca.CertificateAuthority(configuration)
     try:
-        ca.register_with_ca(configuration, acme_client, mail)
+        acme_ca.register(mail)
     except acme_errors.Error as error:
-        logger.exception("Failed to register with the CA:")
+        config.delete_account_key(configuration)
+        logger.exception('Failed to register with the CA:')
         sys.exit('The registration failed. The error was: %s' % error)
+    print 'Registration successful'
 
 def new_config(args, configuration):
     """Creates the enviroment with configuration files and folders"""
@@ -261,7 +254,7 @@ def new_config(args, configuration):
     choice = raw_input().lower()
     if choice != 'yes' and choice != 'y':
         sys.exit('User did not want to continue. Exiting')
-    folders = ["config", "cert", "csr", "cert/backup", "cert/to_be_installed"]
+    folders = ["config", "cert", "csr", "cert/backup"]
     for folder in folders:
         try:
             os.makedirs(folder)
@@ -281,29 +274,17 @@ def new_config(args, configuration):
         print "The logging config file already exists. Not touching it"
     print "Done! Adjust the configuration files as needed"
 
-def _get_new_cert(csr, bigip, partition, name, configuration):
-    key = config.get_account_key(configuration)
-    acme_client = ca.get_client(configuration, key)
-
-    hostnames = cert.get_hostnames_from_csr(csr)
-    logger.debug("The csr has the following hostnames: %s", hostnames)
+def _get_new_cert(acme_ca, bigip, csr):
+    logger.debug("The csr has the following hostnames: %s", csr.hostnames)
     logger.debug("Getting the challenges from the CA")
-    challenges, authz = ca.get_http_challenge_for_domains(configuration,
-                                                          acme_client,
-                                                          hostnames,
-                                                          key)
+    challenges, authz = acme_ca.get_http_challenge_for_domains(csr.hostnames)
 
     for challenge in challenges:
-        lb.send_challenge(bigip, challenge.domain, challenge.path, challenge.validation,
-                          configuration)
+        bigip.send_challenge(challenge.domain, challenge.path, challenge.validation)
 
-    ca.answer_challenges(configuration, acme_client, challenges)
-    certificate, chain = ca.get_certificate_from_ca(configuration, acme_client, csr, authz)
+    acme_ca.answer_challenges(challenges)
+    certificate, chain = acme_ca.get_certificate_from_ca(csr.csr, authz)
 
     for challenge in challenges:
-        lb.remove_challenge(bigip, challenge.domain, challenge.path, configuration)
-    cert_with_chain = certificate
-    if configuration.cm_chain:
-        for chain_cert in chain:
-            cert_with_chain += chain_cert
-    return cert_with_chain
+        bigip.remove_challenge(challenge.domain, challenge.path)
+    return certificate, chain
