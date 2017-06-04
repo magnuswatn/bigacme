@@ -94,7 +94,6 @@ class Certificate(object):
         cert = cls(loaded['partition'], loaded['name'])
         for name, key in loaded.iteritems():
             setattr(cert, name, key)
-        cert.path = fullpath
         return cert
 
     @classmethod
@@ -141,7 +140,8 @@ class Certificate(object):
             if extension.oid == x509.SubjectAlternativeName.oid:
                 self.hostnames = extension.value.get_values_for_type(x509.DNSName)
         # Let's Encrypt uses the commonName, in addition to the SANs, so we do the same
-        self.hostnames.append(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value)
+        if csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME):
+            self.hostnames.append(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value)
         self._csr = pem
 
     def save(self):
