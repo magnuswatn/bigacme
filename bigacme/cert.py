@@ -141,7 +141,9 @@ class Certificate(object):
                 self.hostnames = extension.value.get_values_for_type(x509.DNSName)
         # Let's Encrypt uses the commonName, in addition to the SANs, so we do the same
         if csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME):
-            self.hostnames.append(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value)
+            common_name = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+            if common_name not in self.hostnames:
+                self.hostnames.append(common_name)
         self._csr = pem
 
     def save(self):
