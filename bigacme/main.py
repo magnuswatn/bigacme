@@ -147,7 +147,7 @@ def renew(args, configuration):
             logger.exception("Could not install certificate %s in partition %s:",
                              tbi_cert.name, tbi_cert.partition)
             continue
-        tbi_cert.mark_as_installed(None, None)
+        tbi_cert.mark_as_installed()
 
     cert.delete_expired_backups()
     logger.info('Renewal process completed')
