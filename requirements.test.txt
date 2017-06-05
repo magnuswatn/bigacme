@@ -1,0 +1,5 @@
+-e .
+f5-sdk
+pytest
+pytest-cov
+pyOpenSSL
