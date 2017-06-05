@@ -205,7 +205,7 @@ def test(args, configuration):
     else:
         print "The connection to the load balancer was successfull"
     try:
-        ca.CertificateAuthority(configuration)
+        ca.CertificateAuthority(configuration, test=True)
     except: # pylint: disable=W0702
         print "Could not connect to the CA. Check the log."
         logger.exception("Could not connect to the CA:")

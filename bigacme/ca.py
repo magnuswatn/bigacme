@@ -28,14 +28,17 @@ class GetCertificateFailedError(CAError):
 class CertificateAuthority(object):
     """Represent a Certificate Authority"""
 
-    def __init__(self, configuration):
-        with open(configuration.cm_key, "r") as key_file:
-            private_key = serialization.load_pem_private_key(
-                key_file.read(),
-                password=None,
-                backend=default_backend()
-                )
-        self.key = jose.JWKRSA(key=private_key)
+    def __init__(self, configuration, test=False):
+        if test:
+            self.key = None
+        else:
+            with open(configuration.cm_key, "r") as key_file:
+                private_key = serialization.load_pem_private_key(
+                    key_file.read(),
+                    password=None,
+                    backend=default_backend()
+                    )
+            self.key = jose.JWKRSA(key=private_key)
         self.proxy = configuration.ca_proxy
         self.set_proxy()
         user_agent = 'bigacme (https://github.com/magnuswatn/bigacme/)'
