@@ -254,7 +254,7 @@ def new_config(args, configuration):
     choice = raw_input().lower()
     if choice != 'yes' and choice != 'y':
         sys.exit('User did not want to continue. Exiting')
-    folders = ["config", "cert", "csr", "cert/backup"]
+    folders = ["config", "cert", "cert/backup"]
     for folder in folders:
         try:
             os.makedirs(folder)

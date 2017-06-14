@@ -14,7 +14,7 @@ import bigacme.config
 def setup_module(module):
     temp_dir = tempfile.mkdtemp()
     os.chdir(temp_dir)
-    folders = ["config", "cert", "csr", "cert/backup", "cert/to_be_installed"]
+    folders = ["config", "cert", "cert/backup", "cert/to_be_installed"]
     for folder in folders:
         os.makedirs(folder)
 
@@ -30,7 +30,7 @@ def test_check_configfiles():
     with open('./config/logging.ini', 'a') as open_file:
         open_file.write('hei')
     assert bigacme.config.check_configfiles()
-    os.rmdir('csr')
+    os.rmdir('cert/backup')
     assert not bigacme.config.check_configfiles()
 
 def test_create_and_read_configfile():

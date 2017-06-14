@@ -20,8 +20,7 @@ class KeyAlreadyExistsError(ConfigError):
 def check_configfiles():
     """Checks that the configuration files and folders are in place"""
     return (os.path.exists('./config/config.ini') and os.path.exists('./config/logging.ini') and
-            os.path.exists('./cert') and os.path.exists('./cert/backup')
-            and os.path.exists('./csr'))
+            os.path.exists('./cert') and os.path.exists('./cert/backup'))
 
 def read_configfile(filename):
     """Reads the configfile and creates a config object"""
