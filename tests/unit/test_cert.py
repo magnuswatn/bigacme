@@ -57,7 +57,6 @@ def test_get_certs_that_need_action():
     # certs to be renewed
     cert_tbr1 = bigacme.cert.Certificate.new('Common', 'cert_tbr1', csr)
     cert_tbr1.cert = _generate_certificate(-90800, 4320)
-    print cert_tbr1.cert
     cert_tbr1.mark_as_installed()
     cert_tbr2 = bigacme.cert.Certificate.new('Common', 'cert_tbr2', csr)
     cert_tbr2.cert = _generate_certificate(-9320000, 90800)
