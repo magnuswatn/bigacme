@@ -125,9 +125,10 @@ def new_cert(args, configuration):
 def renew(args, configuration):
     """Goes through all the issued certs and renews them if needed"""
     logger.info('Starting renewal process')
-    bigip = lb.LoadBalancer(configuration)
-    acme_ca = ca.CertificateAuthority(configuration)
     renewals, certs_to_be_installed = cert.get_certs_that_need_action(configuration)
+    if renewals or certs_to_be_installed:
+        acme_ca = ca.CertificateAuthority(configuration)
+        bigip = lb.LoadBalancer(configuration)
     for renewal in renewals:
         logger.info('Renewing cert: %s from partition: %s', renewal.name, renewal.partition)
         try:
