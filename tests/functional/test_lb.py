@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 from collections import namedtuple
 
@@ -7,6 +8,18 @@ import OpenSSL
 from f5.bigip import ManagementRoot
 
 import bigacme.lb
+
+def get_ca_bundle():
+    """Gets the platform ca bundle"""
+    ca_bundles = ["/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt",
+                  "/etc/ssl/ca-bundle.pem", "/etc/pki/tls/cacert.pem"]
+    for ca_bundle in ca_bundles:
+        if os.path.isfile(ca_bundle):
+            return ca_bundle
+    else:
+        sys.exit('ERR: The platform ca bundle was not found.')
+
+os.environ['REQUESTS_CA_BUNDLE'] = get_ca_bundle()
 
 def _generate_certificate(not_before, not_after):
     """Generates a certificate in a file for testing purposes"""
