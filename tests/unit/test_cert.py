@@ -98,12 +98,14 @@ def test_get_certs_that_need_action():
 def test_cert_about_to_expire():
     """Tests if a certificate about to expires is detected"""
     cert = _generate_certificate(-10800, 432000)
-    assert bigacme.cert._check_if_cert_about_to_expire(cert, 14)
+    not_after_str, _ = bigacme.cert._get_cert_dates(cert)
+    assert bigacme.cert._check_if_cert_about_to_expire(not_after_str, 14)
 
 def test_cert_not_about_to_expire():
     """Tests if a certificate not about to expire is not detected"""
     cert = _generate_certificate(-10800, 15552000)
-    assert not bigacme.cert._check_if_cert_about_to_expire(cert, 14)
+    not_after_str, _ = bigacme.cert._get_cert_dates(cert)
+    assert not bigacme.cert._check_if_cert_about_to_expire(not_after_str, 14)
 
 def test_get_cert_dates():
     cert = _generate_certificate(-10800, 15552000)

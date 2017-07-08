@@ -46,12 +46,11 @@ def _get_cert_dates(pem_cert):
                  cert.serial, cert.not_valid_before, cert.not_valid_after)
     return cert.not_valid_after.isoformat(), cert.not_valid_before.isoformat()
 
-def _check_if_cert_about_to_expire(pem_cert, threshold):
-    """Check wheather a certificate from a pem file is about to expire """
+def _check_if_cert_about_to_expire(not_after_str, threshold):
+    """Check whether a certificate with the specified not after date is about to expire"""
     threshold = threshold * -1
     datelimit = (datetime.datetime.today().utcnow() -
                  datetime.timedelta(days=threshold))
-    not_after_str, _ = _get_cert_dates(pem_cert)
     not_after = datetime.datetime.strptime(not_after_str, '%Y-%m-%dT%H:%M:%S')
     if not_after < datelimit:
         logger.debug('%s is before %s, returning True',
@@ -68,14 +67,14 @@ def delete_expired_backups():
         fullpath = './cert/backup/%s' % filename
         try:
             with open(fullpath, 'r') as open_file:
-                about_to_expire = _check_if_cert_about_to_expire(open_file.read(), 0)
+                not_after_str, _ = _get_cert_dates(open_file.read())
         except ValueError as error:
             if error.message == 'Unable to load certificate':
                 logger.warning('Could not load %s as a certificate', filename)
                 continue
             else:
                 raise
-        if about_to_expire:
+        if _check_if_cert_about_to_expire(not_after_str, 0):
             logger.debug("Deleting cert %s", fullpath)
             os.remove(fullpath)
 
@@ -193,7 +192,7 @@ class Certificate(object):
 
     def about_to_expire(self, threshold):
         """Checks if the cert is about to expire and needs to be renewed"""
-        return _check_if_cert_about_to_expire(self.cert, threshold)
+        return _check_if_cert_about_to_expire(self.not_after, threshold)
 
     def old_enough(self, threshold):
         """Checks if the cert is old enough to be installed"""
