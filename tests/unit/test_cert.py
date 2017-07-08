@@ -13,7 +13,7 @@ import bigacme.cert
 def setup_module(module):
     temp_dir = tempfile.mkdtemp()
     os.chdir(temp_dir)
-    folders = ["config", "cert", "csr", "cert/backup", "cert/to_be_installed"]
+    folders = ["config", "cert", "cert/backup"]
     for folder in folders:
         os.makedirs(folder)
 
