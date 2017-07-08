@@ -1,5 +1,6 @@
 """Functions related to certificates"""
 import os
+import uuid
 import json
 import logging
 import datetime
@@ -148,9 +149,21 @@ class Certificate(object):
 
     def save(self):
         """Saves the cert object to disk"""
-        with open(self.path, 'w') as open_file:
-            open_file.write(
-                json.dumps(self.__dict__, indent=4, sort_keys=True))
+        try:
+            with open(self.path, 'w') as open_file:
+                open_file.write(
+                    json.dumps(self.__dict__, indent=4, sort_keys=True))
+        except IOError as error:
+            if error.errno == 13:
+                # It may be owned by another user. Try to recreate it.
+                temp_name = str(uuid.uuid1())
+                os.rename(self.path, temp_name)
+                with open(self.path, 'w') as open_file:
+                    open_file.write(
+                        json.dumps(self.__dict__, indent=4, sort_keys=True))
+                os.remove(temp_name)
+            else:
+                raise
 
     def mark_as_installed(self):
         """Marks the certicate as installed, and saves it to disk"""

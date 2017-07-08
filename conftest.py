@@ -16,6 +16,9 @@ def pytest_addoption(parser):
                      default="acme_responses_dg")
     parser.addoption("--partition", action="store", help="Partition where datagroup is located",
                      default="Common")
+    parser.addoption("--system-user", action="store",
+                     help="System user to use "
+                     "(tests must be run as root for this to have an effect)", default="bigacme")
 
 @pytest.fixture(scope="module")
 def opt_lb(request):
@@ -45,3 +48,6 @@ def opt_datagroup(request):
 def opt_partition(request):
     return request.config.getoption("--partition")
 
+@pytest.fixture(scope="module")
+def opt_user(request):
+    return request.config.getoption("--system-user")

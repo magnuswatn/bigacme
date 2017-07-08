@@ -1,4 +1,5 @@
 import os
+import pwd
 import json
 import shutil
 import tempfile
@@ -10,11 +11,12 @@ import OpenSSL
 
 import bigacme.cert
 
+FOLDERS = ["config", "cert", "cert/backup"]
+
 def setup_module(module):
     temp_dir = tempfile.mkdtemp()
     os.chdir(temp_dir)
-    folders = ["config", "cert", "cert/backup"]
-    for folder in folders:
+    for folder in FOLDERS:
         os.makedirs(folder)
 
 def teardown_module(module):
@@ -240,3 +242,25 @@ def test_not_about_to_expire():
     cert = bigacme.cert.Certificate.new('Common', 'test_not_about_to_expire', csr)
     cert.cert = _generate_certificate(-10800, 432000000)
     assert not cert.about_to_expire(14)
+
+def test_save_when_owned_by_another_user(opt_user):
+    """
+    If a certificate is issued by another user than the one who is running the renew job
+    the cert file will be owned by the issuing user. This should not fail as long as we
+    own the folder and are able to re-create the file.
+
+    Here we create a csr as root and then change to a normal user and try to save it again
+    """
+    if os.geteuid() != 0:
+        pytest.skip("Not running as root")
+    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    cert = bigacme.cert.Certificate.new('Common', 'test_save_when_owned_by_another_user', csr)
+    cert.save()
+    uid = pwd.getpwnam(opt_user).pw_uid
+    os.chown('.', uid, -1)
+    # The folders must be owned be the correct user
+    for folder in FOLDERS:
+        os.chown(folder, uid, -1)
+    os.setuid(uid)
+    cert.save()
+    assert os.path.isfile(cert.path)
