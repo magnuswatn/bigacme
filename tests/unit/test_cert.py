@@ -66,17 +66,17 @@ def test_get_certs_that_need_action():
     cert_tbi1.cert = _generate_certificate(-995700, 1923200)
     cert_tbi1.status = 'To be installed'
     cert_tbi1.save()
-    print cert_tbi1.cert
+
     cert_tbi2 = bigacme.cert.Certificate.new('Common', 'cert_tbi2', csr)
     cert_tbi2.cert = _generate_certificate(-999700, 9123200)
     cert_tbi2.status = 'To be installed'
     cert_tbi2.save()
-    print cert_tbi2.cert
+
     # cert that neither
     cert_tbnothin = bigacme.cert.Certificate.new('Common', 'cert_tbnothin', csr)
     cert_tbnothin.cert = _generate_certificate(-29123200, 29123200)
     cert_tbnothin.mark_as_installed()
-    print cert_tbnothin.cert
+
     # randome file in folder
     with open('./cert/not_json.json', 'w') as open_file:
         open_file.write('this is not json')
