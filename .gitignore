@@ -93,3 +93,6 @@ ENV/
 
 # Test environments
 testmiljo*/
+
+# PyCharm
+.idea/
