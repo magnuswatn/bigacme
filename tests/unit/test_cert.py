@@ -56,6 +56,7 @@ def test_get_certs_that_need_action():
     configtp = namedtuple('Config', ['cm_renewal_days', 'cm_delayed_days'])
     config = configtp(cm_renewal_days=12, cm_delayed_days=4)
     csr = _generate_csr('commonName', 'DNS:san1,DNS:san2')
+
     # certs to be renewed
     cert_tbr1 = bigacme.cert.Certificate.new('Common', 'cert_tbr1', csr)
     cert_tbr1.cert = _generate_certificate(-90800, 4320)
@@ -63,6 +64,7 @@ def test_get_certs_that_need_action():
     cert_tbr2 = bigacme.cert.Certificate.new('Common', 'cert_tbr2', csr)
     cert_tbr2.cert = _generate_certificate(-9320000, 90800)
     cert_tbr2.mark_as_installed()
+
     # certs to be installed
     cert_tbi1 = bigacme.cert.Certificate.new('Common', 'cert_tbi1', csr)
     cert_tbi1.cert = _generate_certificate(-995700, 1923200)
@@ -79,7 +81,7 @@ def test_get_certs_that_need_action():
     cert_tbnothin.cert = _generate_certificate(-29123200, 29123200)
     cert_tbnothin.mark_as_installed()
 
-    # randome file in folder
+    # random file in folder
     with open('./cert/not_json.json', 'w') as open_file:
         open_file.write('this is not json')
     tbr, tbi = bigacme.cert.get_certs_that_need_action(config)
