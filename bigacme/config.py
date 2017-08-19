@@ -58,7 +58,6 @@ def read_configfile(filename):
 
 def create_configfile(filename):
     """Creates a default configfile"""
-    config_file = open(filename, 'w')
     config = ConfigParser.ConfigParser()
     config.add_section('Common')
     config.set('Common', 'renewal days', 20)
@@ -79,12 +78,14 @@ def create_configfile(filename):
     config.set('Certificate Authority', 'use proxy', False)
     config.set('Certificate Authority', 'proxy',
                'http://proxy.example.com:8080')
-    config.write(config_file)
-    config_file.close()
+
+    # As the config file contains password, we should be careful with permissions
+    with os.fdopen(os.open(filename, os.O_WRONLY | os.O_CREAT, 0o660), 'w') as config_file:
+        config.write(config_file)
+
 
 def create_logconfigfile(filename):
     """Creates a default log config file"""
-    config_file = open(filename, 'w')
     config = ConfigParser.ConfigParser()
     config.add_section('loggers')
     config.set('loggers', 'keys', 'root')
@@ -102,8 +103,9 @@ def create_logconfigfile(filename):
     config.set('handler_fileHandler', 'args', "('./log.log', 'a')")
     config.add_section('formatter_fileFormatter')
     config.set('formatter_fileFormatter', 'format', '%(asctime)s - %(levelname)s - %(message)s')
-    config.write(config_file)
-    config_file.close()
+
+    with open(filename, 'w') as config_file:
+        config.write(config_file)
 
 def create_account_key(configuration):
     """Creates an account key and returns it"""

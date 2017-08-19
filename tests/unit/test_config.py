@@ -32,9 +32,13 @@ def test_check_configfiles():
     assert bigacme.config.check_configfiles()
     os.rmdir('cert/backup')
     assert not bigacme.config.check_configfiles()
+    os.remove('./config/config.ini')
+    os.remove('./config/logging.ini')
 
 def test_create_and_read_configfile():
     bigacme.config.create_configfile('./config/config.ini')
+    assert oct(os.stat('./config/config.ini')[stat.ST_MODE]) == '0100660'
+
     config = bigacme.config.read_configfile('./config/config.ini')
 
     # the host 2 option should not be used if Cluster = False
