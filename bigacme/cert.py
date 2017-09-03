@@ -85,6 +85,7 @@ class Certificate(object):
         self.not_after = self.not_before = self.hostnames = None
         self.name, self.partition = name, partition
         self.status = 'New'
+        self.validation_method = 'http-01'
 
     @classmethod
     def load(cls, fullpath):
@@ -97,10 +98,11 @@ class Certificate(object):
         return cert
 
     @classmethod
-    def new(cls, partition, name, csr):
+    def new(cls, partition, name, csr, validation_method):
         """Creates a new Certificate object from a csr"""
         cert = cls(partition, name)
         cert.csr = csr
+        cert.validation_method = validation_method
         return cert
 
     @classmethod
