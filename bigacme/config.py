@@ -26,7 +26,7 @@ def read_configfile(filename):
     """Reads the configfile and creates a config object"""
     configtp = namedtuple("Config", ["lb_user", "lb_pwd", "lb1", "lb2", "lb_dg", "lb_dg_partition",
                                      "ca", "ca_proxy", "cm_chain", "cm_key", "cm_renewal_days",
-                                     "cm_delayed_days"])
+                                     "cm_delayed_days", "plugin"])
     config = ConfigParser.ConfigParser()
     config.read(filename)
     if config.getboolean("Certificate Authority", "use proxy"):
@@ -41,6 +41,11 @@ def read_configfile(filename):
         bigip1 = config.get("Load Balancer", "host 1")
         bigip2 = None
 
+    try:
+        plugin_section = config.items('Plugin')
+    except ConfigParser.NoSectionError:
+        plugin_section = None
+
     the_config = configtp(
         lb1=bigip1,
         lb2=bigip2,
@@ -53,7 +58,8 @@ def read_configfile(filename):
         cm_chain=config.getboolean("Common", "include chain"),
         cm_key=config.get("Common", "account key"),
         cm_renewal_days=int(config.get("Common", "renewal days")),
-        cm_delayed_days=int(config.get("Common", "delayed installation days")))
+        cm_delayed_days=int(config.get("Common", "delayed installation days")),
+        plugin=plugin_section)
     return the_config
 
 def create_configfile(filename):
