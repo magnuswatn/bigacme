@@ -137,8 +137,12 @@ def new_cert(args, configuration):
         certificate, chain = _get_new_cert(acme_ca, bigip, certobj, dns_plugin)
     except ca.GetCertificateFailedError as error:
         logger.error("Could not get a certificate from the CA. The error was: %s", error.message)
-        sys.exit(("Could not get a certificate from the CA. Is the iRule attached to the "
-                  "Virtual Server? The error was: %s" % error.message))
+        if chall_typ == 'http-01':
+            sys.exit(("Could not get a certificate from the CA. Is the iRule attached to the "
+                      "Virtual Server? The error was: %s" % error.message))
+        else:
+            sys.exit(("Could not get a certificate from the CA. The error was: %s" % error.message))
+
     certobj.cert, certobj.chain = certificate, chain
     bigip.upload_certificate(args.partition, args.csrname, certobj.get_pem(configuration.cm_chain))
     certobj.mark_as_installed()
