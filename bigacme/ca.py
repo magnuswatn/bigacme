@@ -105,6 +105,7 @@ class CertificateAuthority(object):
         try:
             certificateresource, _ = self.client.poll_and_request_issuance(jose_csr, authorizations)
         except acme_errors.PollError as error:
+            self.unset_proxy()
             if error.timeout:
                 raise GetCertificateFailedError(
                     "Timed out while waiting for the CA to verify the challenges")
