@@ -324,9 +324,9 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
             bigip.send_challenge(challenge.domain, challenge.challenge.path, challenge.validation)
     elif csr.validation_method == 'dns-01':
         for challenge in challenges:
-            # TODO: punktum bak?
             record_name = challenge.challenge.validation_domain_name(challenge.domain)
             dns_plugin.perform(challenge.domain, record_name, challenge.validation)
+        dns_plugin.finish_perform()
     else:
         raise ca.UnknownValidationType('Validation type %s is not recognized' %
                                        csr.validation_method)
@@ -343,5 +343,6 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
             for challenge in challenges:
                 record_name = challenge.challenge.validation_domain_name(challenge.domain)
                 dns_plugin.cleanup(challenge.domain, record_name, challenge.validation)
+            dns_plugin.finish_cleanup()
 
     return certificate, chain
