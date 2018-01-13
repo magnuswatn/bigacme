@@ -138,4 +138,4 @@ def _return_desired_challenges(challenges, typ):
             desired_challenges += [[challenge.body.identifier.value, desired_challenge[0]]]
         else:
             raise NoDesiredChallenge('The CA didn\'t provide a %s challenge' % typ)
-        return desired_challenges
+    return desired_challenges
