@@ -12,7 +12,7 @@ when HTTP_REQUEST {
         set token [HTTP::host]:[string map {"/.well-known/acme-challenge/" ""} [HTTP::path]]
         set response [class match -value -- $token equals $datagroup]
 
-	if { $response != "" } {
+        if { $response != "" } {
             log local0.info "Responding to ACME challenge $token with response $response on virtual server [virtual name]"
             HTTP::respond 200 -version 1.1 content $response noserver "Content-Type" "text/plain; charset=utf-8" Connection Close
             event disable
