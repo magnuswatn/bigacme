@@ -103,6 +103,27 @@ def test_get_csr_not_existing_Partition(lb, rest_lb):
     with pytest.raises(bigacme.lb.PartitionNotFoundError):
         lb.get_csr('NotAPartition', 'NotACsr')
 
+def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
+    """Test that when a user does not have access to the partition,
+    we correctly raise an AccessDeniedError.
+
+    Create a partition and a user that does not have access to it, and try to retrieve
+    a csr from the partition. This should fail with a AccessDeniedError.
+    """
+    partition = rest_lb.tm.auth.partitions.partition.create(name='bigacmeTestPartition')
+
+    partition_access = [{u'role': u'guest', u'name': u'Common'}]
+    user = rest_lb.tm.auth.users.user.create(name='bigacmeTestUser', tmPartition='Common',
+                                             password='mpfiocj9YUHYhfds',
+                                             partitionAccess=partition_access)
+    bigip = lb('bigacmeTestUser', 'mpfiocj9YUHYhfds', opt_lb, opt_datagroup, opt_partition)
+
+    with pytest.raises(bigacme.lb.AccessDeniedError):
+        bigip.get_csr('bigacmeTestPartition', 'anyName')
+
+    partition.delete()
+    user.delete()
+
 def test_upload_certificate(lb, opt_partition):
     cert = _generate_certificate(0, 9999999)
     lb.upload_certificate(opt_partition, 'test_upload_certificate_certificate', [cert])

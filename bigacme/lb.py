@@ -87,6 +87,8 @@ class LoadBalancer(object):
         except bigsuds.ServerError as error:
             if 'folder not found' in error.message:
                 raise PartitionNotFoundError()
+            elif 'Access Denied:' in error.message:
+                raise AccessDeniedError()
             else:
                 raise
         try:
