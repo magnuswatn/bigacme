@@ -6,3 +6,4 @@
 
 [Example installation on RHEL 7](RHEL7-example.md) An example guide to installing Big-ACME on Red Hat 7
 
+[Plugins](plugins.md) About plugins for DNS validation

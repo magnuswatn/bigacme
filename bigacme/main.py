@@ -14,6 +14,7 @@ from . import config
 from . import cert
 from . import ca
 from . import lb
+from . import plugin
 from . import version
 
 # pylint: disable=W0613
@@ -31,6 +32,7 @@ def main():
         "new", help="request a new certificate")
     parser_new.add_argument("partition", help="the name of partition on the Big-IP")
     parser_new.add_argument("csrname", help="the name of the csr on the Big-IP")
+    parser_new.add_argument("-dns", help="Use DNS validation instead of HTTP", action='store_true')
     parser_new.set_defaults(func=new_cert)
 
     parser_remove = subparsers.add_parser(
@@ -94,7 +96,26 @@ def new_cert(args, configuration):
     logger.info('User %s started issuance of cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
     bigip = lb.LoadBalancer(configuration)
+
+    if args.dns:
+        try:
+            dns_plugin = plugin.get_plugin(configuration)
+        except plugin.NoPluginFoundError:
+            logger.error("No DNS plugin was found. "
+                         "Unable to get certificate by using DNS validation without plugin.")
+            sys.exit("No DNS plugin was found. A DNS plugin is needed for DNS validation.")
+
+        except plugin.InvalidConfigError as error:
+            logger.exception("Failed to initialize plugin. Error was: %s", error.message)
+            sys.exit("Failed to initialize plugin. Error was: %s" % error.message)
+
+        chall_typ = 'dns-01'
+    else:
+        dns_plugin = None
+        chall_typ = 'http-01'
+
     print "Getting the CSR from the Big-IP..."
+
     try:
         csr = bigip.get_csr(args.partition, args.csrname)
     except lb.PartitionNotFoundError:
@@ -108,15 +129,20 @@ def new_cert(args, configuration):
         logger.error("The CSR was not found on the device")
         sys.exit('Could not find the csr on the big-ip. Check the spelling.')
 
-    certobj = cert.Certificate.new(args.partition, args.csrname, csr)
+    certobj = cert.Certificate.new(args.partition, args.csrname, csr, chall_typ)
     print "Getting a new certificate from the CA. This may take a while..."
     acme_ca = ca.CertificateAuthority(configuration)
+
     try:
-        certificate, chain = _get_new_cert(acme_ca, bigip, certobj)
+        certificate, chain = _get_new_cert(acme_ca, bigip, certobj, dns_plugin)
     except ca.GetCertificateFailedError as error:
         logger.error("Could not get a certificate from the CA. The error was: %s", error.message)
-        sys.exit(("Could not get a certificate from the CA. Is the iRule attached to the "
-                  "Virtual Server? The error was: %s" % error.message))
+        if chall_typ == 'http-01':
+            sys.exit(("Could not get a certificate from the CA. Is the iRule attached to the "
+                      "Virtual Server? The error was: %s" % error.message))
+        else:
+            sys.exit(("Could not get a certificate from the CA. The error was: %s" % error.message))
+
     certobj.cert, certobj.chain = certificate, chain
     bigip.upload_certificate(args.partition, args.csrname, certobj.get_pem(configuration.cm_chain))
     certobj.mark_as_installed()
@@ -126,13 +152,25 @@ def renew(args, configuration):
     """Goes through all the issued certs and renews them if needed"""
     logger.info('Starting renewal process')
     renewals, certs_to_be_installed = cert.get_certs_that_need_action(configuration)
+
     if renewals or certs_to_be_installed:
         acme_ca = ca.CertificateAuthority(configuration)
         bigip = lb.LoadBalancer(configuration)
+
+    dns_plugin = None
     for renewal in renewals:
         logger.info('Renewing cert: %s from partition: %s', renewal.name, renewal.partition)
+
+        if renewal.validation_method == 'dns-01' and not dns_plugin:
+            try:
+                dns_plugin = plugin.get_plugin(configuration)
+            except plugin.PluginError:
+                logger.exception("Could not load plugin to renew certificate %s in partition %s:",
+                                 renewal.name, renewal.partition)
+                continue
+
         try:
-            certificate, chain = _get_new_cert(acme_ca, bigip, renewal)
+            certificate, chain = _get_new_cert(acme_ca, bigip, renewal, dns_plugin)
         except (ca.GetCertificateFailedError, lb.LoadBalancerError):
             logger.exception("Could not renew certificate %s in partition %s:",
                              renewal.name, renewal.partition)
@@ -275,17 +313,36 @@ def new_config(args, configuration):
         print "The logging config file already exists. Not touching it"
     print "Done! Adjust the configuration files as needed"
 
-def _get_new_cert(acme_ca, bigip, csr):
+def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
     logger.debug("The csr has the following hostnames: %s", csr.hostnames)
     logger.debug("Getting the challenges from the CA")
-    challenges, authz = acme_ca.get_http_challenge_for_domains(csr.hostnames)
 
-    for challenge in challenges:
-        bigip.send_challenge(challenge.domain, challenge.path, challenge.validation)
+    challenges, authz = acme_ca.get_challenge_for_domains(csr.hostnames, csr.validation_method)
+
+    if csr.validation_method == 'http-01':
+        for challenge in challenges:
+            bigip.send_challenge(challenge.domain, challenge.challenge.path, challenge.validation)
+    elif csr.validation_method == 'dns-01':
+        for challenge in challenges:
+            record_name = challenge.challenge.validation_domain_name(challenge.domain)
+            dns_plugin.perform(challenge.domain, record_name, challenge.validation)
+        dns_plugin.finish_perform()
+    else:
+        raise ca.UnknownValidationType('Validation type %s is not recognized' %
+                                       csr.validation_method)
 
     acme_ca.answer_challenges(challenges)
-    certificate, chain = acme_ca.get_certificate_from_ca(csr.csr, authz)
+    try:
+        certificate, chain = acme_ca.get_certificate_from_ca(csr.csr, authz)
+    finally:
+        # cleanup
+        if csr.validation_method == 'http-01':
+            for challenge in challenges:
+                bigip.remove_challenge(challenge.domain, challenge.challenge.path)
+        elif csr.validation_method == 'dns-01':
+            for challenge in challenges:
+                record_name = challenge.challenge.validation_domain_name(challenge.domain)
+                dns_plugin.cleanup(challenge.domain, record_name, challenge.validation)
+            dns_plugin.finish_cleanup()
 
-    for challenge in challenges:
-        bigip.remove_challenge(challenge.domain, challenge.path)
     return certificate, chain

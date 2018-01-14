@@ -61,6 +61,18 @@ def test_create_and_read_configfile():
     config = bigacme.config.read_configfile('./config/config.ini')
     assert not config.ca_proxy
 
+    # The plugin config should be False by default
+    assert not config.plugin
+
+    # If there is a Plugin section, the whole should be returned as config.plugin
+    plugin_config = "[Plugin]\noption1 = yes\noption2 = no"
+    with open('./config/config.ini', 'a') as config_file:
+        config_file.write(plugin_config)
+    config = bigacme.config.read_configfile('./config/config.ini')
+    assert len(config.plugin) == 2
+    assert config.plugin[0][1] == "yes"
+    assert config.plugin[1][1] == "no"
+
 def test_create_account_key():
     configtp = namedtuple('Config', ['cm_key'])
     config = configtp(cm_key='./config/key.pem')

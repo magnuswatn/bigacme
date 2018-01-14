@@ -18,11 +18,14 @@ logger = logging.getLogger(__name__)
 class CAError(Exception):
     """Superclass for all ca exceptions."""
     pass
-class NoHTTPChallenge(CAError):
-    """Raised when there is no http challenge to be solved"""
+class NoDesiredChallenge(CAError):
+    """Raised when the CA did not provides the desired challenge for the domain"""
     pass
 class GetCertificateFailedError(CAError):
     """Raised when it was not possible to get the certificate"""
+    pass
+class UnknownValidationType(CAError):
+    """Raised when the validation type is not recognized"""
     pass
 
 class CertificateAuthority(object):
@@ -67,20 +70,15 @@ class CertificateAuthority(object):
         logger.info("Registered with the CA")
         self.unset_proxy()
 
-    def get_http_challenge_for_domains(self, hostnames):
-        """Gets challenges from the CA, and return the HTTP ones"""
-        challenges = self.get_challenge_for_domains(hostnames)
-        http_challenges = _return_http_challenges(challenges)
-        return self.return_tuple_from_challenges(http_challenges), challenges
-
-    def get_challenge_for_domains(self, hostnames):
+    def get_challenge_for_domains(self, hostnames, typ):
         """Asks the CA for challenges for the specified domains"""
         self.set_proxy()
-        challenges = []
+        authz = []
         for hostname in hostnames:
-            challenges += [self.client.request_domain_challenges(hostname)]
+            authz += [self.client.request_domain_challenges(hostname)]
         self.unset_proxy()
-        return challenges
+        desired_challenges = _return_desired_challenges(authz, typ)
+        return self.return_tuple_from_challenges(desired_challenges), authz
 
     def answer_challenges(self, challenges):
         """Tells the CA that the challenges has been solved"""
@@ -107,6 +105,7 @@ class CertificateAuthority(object):
         try:
             certificateresource, _ = self.client.poll_and_request_issuance(jose_csr, authorizations)
         except acme_errors.PollError as error:
+            self.unset_proxy()
             if error.timeout:
                 raise GetCertificateFailedError(
                     "Timed out while waiting for the CA to verify the challenges")
@@ -121,29 +120,22 @@ class CertificateAuthority(object):
         self.unset_proxy()
         return cert, chain
 
-    def return_tuple_from_challenges(self, http_challenges):
+    def return_tuple_from_challenges(self, challenges):
         """Returns a challenge tuple from a list of challenges"""
-        challtp = namedtuple("Authz", ["domain", "path", "validation", "response", "challenge"])
+        challtp = namedtuple("Authz", ["domain", "validation", "response", "challenge"])
         tuples = []
-        for challenge in http_challenges:
+        for challenge in challenges:
             response, validation = challenge[1].response_and_validation(self.key)
-            tuples += [challtp(domain=challenge[0], path=challenge[1].path,
-                               validation=validation, response=response, challenge=challenge[1])]
+            tuples += [challtp(domain=challenge[0], validation=validation, response=response,
+                               challenge=challenge[1])]
         return tuples
 
-def _return_http_challenges(challenges):
-    """Returns the http challenge"""
-    http_challenges = []
+def _return_desired_challenges(challenges, typ):
+    desired_challenges = []
     for challenge in challenges:
-        http_challenge = False
-        logger.debug("This challenge is for the domain: %s", challenge.body.identifier.value)
-        for subchallenge in challenge.body.challenges:
-            logger.debug("This challenge is of type %s", subchallenge.chall.typ)
-            if subchallenge.chall.typ == "http-01":
-                logger.debug("This challenge is of http :-)")
-                http_challenges += [[challenge.body.identifier.value, subchallenge]]
-                http_challenge = True
-        if not http_challenge:
-            logger.debug("Found no http challenge for this domain, raising NoHTTPChallenge")
-            raise NoHTTPChallenge
-    return http_challenges
+        desired_challenge = [ch for ch in challenge.body.challenges if ch.typ == typ]
+        if desired_challenge:
+            desired_challenges += [[challenge.body.identifier.value, desired_challenge[0]]]
+        else:
+            raise NoDesiredChallenge('The CA didn\'t provide a %s challenge' % typ)
+    return desired_challenges
