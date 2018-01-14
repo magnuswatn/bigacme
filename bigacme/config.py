@@ -90,11 +90,24 @@ def create_configfile(filename):
         config.write(config_file)
 
 
-def create_logconfigfile(filename):
-    """Creates a default log config file"""
+def create_logconfigfile(filename, debug):
+    """
+    Creates a default log config file
+
+    Normally we just use the root logger, but if debug is specified,
+    we create a separate logger for bigacme,
+    and stops it from propagate to the root logger.
+    Otherwise it will be flooded with suds logging
+
+    """
     config = ConfigParser.ConfigParser()
     config.add_section('loggers')
-    config.set('loggers', 'keys', 'root')
+
+    if debug:
+        config.set('loggers', 'keys', 'root, bigacme')
+    else:
+        config.set('loggers', 'keys', 'root')
+
     config.add_section('handlers')
     config.set('handlers', 'keys', 'fileHandler')
     config.add_section('formatters')
@@ -102,9 +115,21 @@ def create_logconfigfile(filename):
     config.add_section('logger_root')
     config.set('logger_root', 'level', 'INFO')
     config.set('logger_root', 'handlers', 'fileHandler')
+
+    if debug:
+        config.add_section('logger_bigacme')
+        config.set('logger_bigacme', 'qualname', 'bigacme')
+        config.set('logger_bigacme', 'level', 'DEBUG')
+        config.set('logger_bigacme', 'handlers', 'fileHandler')
+        config.set('logger_bigacme', 'propagate', 0)
+
     config.add_section('handler_fileHandler')
     config.set('handler_fileHandler', 'class', 'FileHandler')
-    config.set('handler_fileHandler', 'level', 'INFO')
+
+    if debug:
+        config.set('handler_fileHandler', 'level', 'DEBUG')
+    else:
+        config.set('handler_fileHandler', 'level', 'INFO')
     config.set('handler_fileHandler', 'formatter', 'fileFormatter')
     config.set('handler_fileHandler', 'args', "('./log.log', 'a')")
     config.add_section('formatter_fileFormatter')

@@ -85,5 +85,19 @@ def test_create_account_key():
     assert not os.path.isfile(config.cm_key)
 
 def test_create_logconfigfile():
-    bigacme.config.create_logconfigfile('./config/logging.ini')
+    """ Creates a normal logconfig file"""
+    bigacme.config.create_logconfigfile('./config/logging.ini', False)
     logging.config.fileConfig('./config/logging.ini')
+    # root logger should be INFO and the bigacme logger nothin, but should propagate
+    assert logging.getLogger().level == 20
+    assert logging.getLogger('bigacme').level == 0
+    assert logging.getLogger('bigacme').propagate == 1
+
+def test_create_logconfigfile_debug():
+    """ Creates a debug logconfig file"""
+    bigacme.config.create_logconfigfile('./config/logging.ini', True)
+    logging.config.fileConfig('./config/logging.ini')
+    # root logger should be INFO and the bigacme logger DEBUG and not propagate
+    assert logging.getLogger().level == 20
+    assert logging.getLogger('bigacme').level == 10
+    assert logging.getLogger('bigacme').propagate == 0

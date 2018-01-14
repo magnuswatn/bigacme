@@ -61,6 +61,8 @@ def main():
 
     parser_config = subparsers.add_parser(
         "config", help="generate a folder structure with config files")
+    parser_config.add_argument("-debug", help="Create logging config with DEBUG for bigacme",
+                               action='store_true')
     parser_config.set_defaults(func=new_config)
 
     parser_config = subparsers.add_parser("version", help="show the version number and exit")
@@ -308,7 +310,7 @@ def new_config(args, configuration):
     else:
         print "The config file already exists. Not touching it"
     if not os.path.exists(log_file):
-        config.create_logconfigfile(log_file)
+        config.create_logconfigfile(log_file, args.debug)
     else:
         print "The logging config file already exists. Not touching it"
     print "Done! Adjust the configuration files as needed"
