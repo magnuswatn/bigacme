@@ -9,18 +9,6 @@ from f5.bigip import ManagementRoot
 
 import bigacme.lb
 
-def get_ca_bundle():
-    """Gets the platform ca bundle"""
-    ca_bundles = ["/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt",
-                  "/etc/ssl/ca-bundle.pem", "/etc/pki/tls/cacert.pem"]
-    for ca_bundle in ca_bundles:
-        if os.path.isfile(ca_bundle):
-            return ca_bundle
-    else:
-        sys.exit('ERR: The platform ca bundle was not found.')
-
-os.environ['REQUESTS_CA_BUNDLE'] = get_ca_bundle()
-
 def _generate_certificate(not_before, not_after):
     """Generates a certificate in a file for testing purposes"""
     key = OpenSSL.crypto.PKey()
@@ -60,7 +48,7 @@ def lb(opt_username, opt_password, opt_lb, opt_datagroup, opt_partition):
 
 @pytest.fixture(scope="module")
 def rest_lb(opt_lb, opt_username, opt_password):
-    return ManagementRoot(opt_lb, opt_username, opt_password)
+    return ManagementRoot(opt_lb, opt_username, opt_password, verify=True)
 
 def test_send__and_remove_challenge(lb, rest_lb, opt_partition, opt_datagroup):
     lb.send_challenge('test.watn.no', 'hei', 'striiing')

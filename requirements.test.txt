@@ -1,5 +1,5 @@
 -e .
-f5-sdk
+f5-sdk>=3.0.7
 pytest
 pytest-cov
 pyOpenSSL
