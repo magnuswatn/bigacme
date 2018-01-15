@@ -144,6 +144,9 @@ def new_cert(args, configuration):
                       "Virtual Server? The error was: %s" % error.message))
         else:
             sys.exit(("Could not get a certificate from the CA. The error was: %s" % error.message))
+    except plugin.PluginError as error:
+        logger.exception('An error occured in %s:', dns_plugin.name)
+        sys.exit('An error occured while solving the challenge(s): %s' % error)
 
     certobj.cert, certobj.chain = certificate, chain
     bigip.upload_certificate(args.partition, args.csrname, certobj.get_pem(configuration.cm_chain))
