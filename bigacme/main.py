@@ -173,7 +173,7 @@ def renew(args, configuration):
 
         try:
             certificate, chain = _get_new_cert(acme_ca, bigip, renewal, dns_plugin)
-        except (ca.GetCertificateFailedError, lb.LoadBalancerError):
+        except (ca.GetCertificateFailedError, lb.LoadBalancerError, plugin.PluginError):
             logger.exception("Could not renew certificate %s in partition %s:",
                              renewal.name, renewal.partition)
             continue
