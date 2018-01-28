@@ -16,6 +16,7 @@ from . import ca
 from . import lb
 from . import plugin
 from . import version
+from .vendor import click_spinner
 
 # pylint: disable=W0613
 
@@ -119,7 +120,8 @@ def new_cert(args, configuration):
     print "Getting the CSR from the Big-IP..."
 
     try:
-        csr = bigip.get_csr(args.partition, args.csrname)
+        with click_spinner.spinner():
+            csr = bigip.get_csr(args.partition, args.csrname)
     except lb.PartitionNotFoundError:
         logger.error("The partition was not found on the device")
         sys.exit("The specified partition does not seem to exist.")
@@ -136,7 +138,8 @@ def new_cert(args, configuration):
     acme_ca = ca.CertificateAuthority(configuration)
 
     try:
-        certificate, chain = _get_new_cert(acme_ca, bigip, certobj, dns_plugin)
+        with click_spinner.spinner():
+            certificate, chain = _get_new_cert(acme_ca, bigip, certobj, dns_plugin)
     except ca.GetCertificateFailedError as error:
         logger.error("Could not get a certificate from the CA. The error was: %s", error.message)
         if chall_typ == 'http-01':
