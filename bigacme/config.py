@@ -10,6 +10,10 @@ from acme import jose
 
 logger = logging.getLogger(__name__)
 
+CONFIG_FILE = 'config/config.ini'
+LOG_CONFIG_FILE = 'config/logging.ini'
+CONFIG_DIRS = ['config', 'cert', 'cert/backup']
+
 class ConfigError(Exception):
     """Superclass for all config exceptions."""
     pass
@@ -19,16 +23,16 @@ class KeyAlreadyExistsError(ConfigError):
 
 def check_configfiles():
     """Checks that the configuration files and folders are in place"""
-    return (os.path.exists('./config/config.ini') and os.path.exists('./config/logging.ini') and
-            os.path.exists('./cert') and os.path.exists('./cert/backup'))
+    return (all(os.path.isdir(x) for x in CONFIG_DIRS) and
+            os.path.isfile(CONFIG_FILE) and os.path.isfile(LOG_CONFIG_FILE))
 
-def read_configfile(filename):
+def read_configfile():
     """Reads the configfile and creates a config object"""
     configtp = namedtuple("Config", ["lb_user", "lb_pwd", "lb1", "lb2", "lb_dg", "lb_dg_partition",
                                      "ca", "ca_proxy", "cm_chain", "cm_key", "cm_renewal_days",
                                      "cm_delayed_days", "plugin"])
     config = ConfigParser.ConfigParser()
-    config.read(filename)
+    config.read(CONFIG_FILE)
     if config.getboolean("Certificate Authority", "use proxy"):
         ca_proxy = config.get("Certificate Authority", "proxy")
     else:
@@ -62,7 +66,7 @@ def read_configfile(filename):
         plugin=plugin_section)
     return the_config
 
-def create_configfile(filename):
+def create_configfile():
     """Creates a default configfile"""
     config = ConfigParser.ConfigParser()
     config.add_section('Common')
@@ -86,11 +90,11 @@ def create_configfile(filename):
                'http://proxy.example.com:8080')
 
     # As the config file contains password, we should be careful with permissions
-    with os.fdopen(os.open(filename, os.O_WRONLY | os.O_CREAT, 0o660), 'w') as config_file:
+    with os.fdopen(os.open(CONFIG_FILE, os.O_WRONLY | os.O_CREAT, 0o660), 'w') as config_file:
         config.write(config_file)
 
 
-def create_logconfigfile(filename, debug):
+def create_logconfigfile(debug):
     """
     Creates a default log config file
 
@@ -135,7 +139,7 @@ def create_logconfigfile(filename, debug):
     config.add_section('formatter_fileFormatter')
     config.set('formatter_fileFormatter', 'format', '%(asctime)s - %(levelname)s - %(message)s')
 
-    with open(filename, 'w') as config_file:
+    with open(LOG_CONFIG_FILE, 'w') as config_file:
         config.write(config_file)
 
 def create_account_key(configuration):

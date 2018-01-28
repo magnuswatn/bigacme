@@ -80,14 +80,17 @@ def main():
     if args.operation not in ['config', 'version']:
         if not config.check_configfiles():
             sys.exit("Could not find the configuration files in the specified folder")
-        logging.config.fileConfig("./config/logging.ini", disable_existing_loggers=False)
+
+        logging.config.fileConfig(config.LOG_CONFIG_FILE, disable_existing_loggers=False)
+
         try:
-            the_config = config.read_configfile('./config/config.ini')
+            the_config = config.read_configfile()
         except (NoSectionError, NoOptionError, ValueError) as error:
             sys.exit(("The configuration files was found, but was not complete. "
                       "The error was: %s" % error.message))
     else:
         the_config = None
+
     try:
         args.func(args, the_config)
     except Exception: # pylint: disable=W0703
@@ -293,16 +296,15 @@ def register(args, configuration):
 
 def new_config(args, configuration):
     """Creates the enviroment with configuration files and folders"""
-    props_file = './config/config.ini'
-    log_file = './config/logging.ini'
     print("This will create the necessary folder structure, and configuration files "
           "in the specified configuration folder (default is the current folder)")
     print "Do you want to continue? yes or no"
+
     choice = raw_input().lower()
     if choice != 'yes' and choice != 'y':
         sys.exit('User did not want to continue. Exiting')
-    folders = ["config", "cert", "cert/backup"]
-    for folder in folders:
+
+    for folder in config.CONFIG_DIRS:
         try:
             os.makedirs(folder)
         except OSError as error:
@@ -311,14 +313,17 @@ def new_config(args, configuration):
                 print "The folder %s already exists" % folder
             else:
                 raise
-    if not os.path.exists(props_file):
-        config.create_configfile(props_file)
+
+    if not os.path.exists(config.CONFIG_FILE):
+        config.create_configfile()
     else:
         print "The config file already exists. Not touching it"
-    if not os.path.exists(log_file):
-        config.create_logconfigfile(log_file, args.debug)
+
+    if not os.path.exists(config.LOG_CONFIG_FILE):
+        config.create_logconfigfile(args.debug)
     else:
         print "The logging config file already exists. Not touching it"
+
     print "Done! Adjust the configuration files as needed"
 
 def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
