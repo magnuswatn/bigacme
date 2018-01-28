@@ -210,6 +210,7 @@ def remove(args, configuration):
         sys.exit("The specified certificate was not found")
     logger.info('User %s removed cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
+    print "Certificate %s in partition %s removed" % (args.csrname, args.partition)
 
 def revoke(args, configuration):
     """Revokes a certificate"""
