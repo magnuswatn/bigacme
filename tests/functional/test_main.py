@@ -75,6 +75,32 @@ def test_recreate_config_with_debug():
         log_config = log_config_file.read()
     assert 'DEBUG' in log_config
 
+def test_register_abort():
+    """If user regrets, we should abort"""
+    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = cmd.communicate(input='no\n')
+    assert output[1] == 'User did not want to continue. Exiting\n'
+    assert cmd.returncode == 1
+    assert not os.path.isfile('/config/key.pem')
+
+def test_register_wrong_email():
+    """If user typed in the wrong email, we should abort"""
+    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = cmd.communicate(input='yes\nemail@example.com\nno\n')
+    assert output[1] == 'Wrong mail. Exiting\n'
+    assert cmd.returncode == 1
+    assert not os.path.isfile('/config/key.pem')
+
+def test_revoke_abort():
+    """If user regrets, we should abort"""
+    cmd = subprocess.Popen(['bigacme', 'revoke', 'Common', 'cert'], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = cmd.communicate(input='revoke\n') # note not caps
+    assert output[1] == 'Exiting...\n'
+    assert cmd.returncode == 1
+
 def test_incomplete_config_files():
     """
     The CLI should fail if the config files are not complete
