@@ -1,11 +1,10 @@
 """Functions that interacts with the CA"""
-import os
 import logging
 from collections import namedtuple
 
+import josepy as jose
 from acme import client
 from acme import messages
-from acme import jose
 from acme import errors as acme_errors
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization

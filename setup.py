@@ -12,6 +12,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'bigsuds',
+        'josepy',
         'acme',
         'cryptography',
         'PyOpenSSL',
