@@ -1,5 +1,8 @@
 bigacme
 =====
+[![Build Status](https://travis-ci.org/magnuswatn/bigacme.svg?branch=master)](https://travis-ci.org/magnuswatn/bigacme)
+[![codecov](https://codecov.io/gh/magnuswatn/bigacme/branch/master/graph/badge.svg)](https://codecov.io/gh/magnuswatn/bigacme)
+
 An ACME client for F5 Big-IP. It runs on a seperate computer, and talks to the Big-IP via iControl.
 
 It can be used to get certificates from a ACME compatible CA, and auto-renew them before they expire. This can reduse the administrative burden of SSL.
