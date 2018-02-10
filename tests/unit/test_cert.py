@@ -11,6 +11,8 @@ import OpenSSL
 
 import bigacme.cert
 
+ORG_CWD = os.getcwd()
+
 FOLDERS = ["config", "cert", "cert/backup"]
 
 def setup_module(module):
@@ -22,6 +24,7 @@ def setup_module(module):
 def teardown_module(module):
     if '/tmp/' in os.getcwd():
         shutil.rmtree(os.getcwd())
+    os.chdir(ORG_CWD)
 
 def _generate_certificate(not_before, not_after):
     """Generates a certificate in a file for testing purposes"""

@@ -9,6 +9,8 @@ import subprocess
 
 from bigacme import version
 
+ORG_CWD = os.getcwd()
+
 def setup_module(module):
     temp_dir = tempfile.mkdtemp()
     os.chdir(temp_dir)
@@ -16,6 +18,7 @@ def setup_module(module):
 def teardown_module(module):
     if '/tmp/' in os.getcwd():
         shutil.rmtree(os.getcwd())
+    os.chdir(ORG_CWD)
 
 def test_version():
     """The 'bigacme version' command should output the verison number (plus newline)"""
