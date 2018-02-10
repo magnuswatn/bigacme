@@ -4,4 +4,6 @@ python:
 install:
 - pip install -r requirements.test.txt
 script:
-- pytest --lb $LB --pass $PASS
+- pytest --lb $LB --pass $PASS --cov=bigacme
+after_success:
+- codecov
