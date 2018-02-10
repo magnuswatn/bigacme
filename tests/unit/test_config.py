@@ -36,6 +36,9 @@ def test_check_configfiles():
     os.remove(bigacme.config.LOG_CONFIG_FILE)
 
 def test_create_and_read_configfile():
+
+    # the config file should not be world readable, even with an permissive umask
+    os.umask(0o0000)
     bigacme.config.create_configfile()
     assert oct(os.stat(bigacme.config.CONFIG_FILE)[stat.ST_MODE]) == '0100660'
 
