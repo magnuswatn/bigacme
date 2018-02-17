@@ -21,7 +21,7 @@ def _generate_certificate(not_before, not_after):
     cert.gmtime_adj_notAfter(not_after)
     cert.set_pubkey(key)
     cert.sign(key, "sha256")
-    return OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert)
+    return OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert).decode()
 
 def _generate_csr(cn, san):
     """Generates a csr for testing purposes"""
@@ -31,7 +31,7 @@ def _generate_csr(cn, san):
     if cn:
         req.get_subject().CN = cn
     if san:
-        sn = ([OpenSSL.crypto.X509Extension("subjectAltName", False, san)])
+        sn = ([OpenSSL.crypto.X509Extension(b'subjectAltName', False, san)])
         req.add_extensions(sn)
     req.set_pubkey(key)
     req.sign(key, "sha256")
@@ -69,7 +69,7 @@ def test_send__and_remove_challenge(lb, rest_lb, opt_partition, opt_datagroup):
         assert {u'data': u'striiing2', u'name': u'test.watn.no:hei'} not in datag.records
 
 def test_get_csr(lb, rest_lb):
-    pem_csr = _generate_csr('commonName', 'DNS:SAN')
+    pem_csr = _generate_csr('commonName', b'DNS:SAN')
     csr_file = tempfile.NamedTemporaryFile(suffix='.pem', delete=False)
     csr_file.write(pem_csr)
     csr_file.seek(0)
@@ -80,7 +80,7 @@ def test_get_csr(lb, rest_lb):
         name='/Common/test_get_csr',
         sourcePath='file:/var/config/rest/downloads/%s' % csr_filename)
     pem_csr2 = lb.get_csr('Common', 'test_get_csr')
-    assert pem_csr == pem_csr2
+    assert pem_csr.decode() == pem_csr2
     csr.delete()
 
 def test_get_csr_not_existing(lb, rest_lb):

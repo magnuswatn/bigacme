@@ -61,7 +61,7 @@ class LoadBalancer(object):
             datagroup.add_string_class_member(class_members)
         except bigsuds.ServerError as error:
             if 'The requested class string item (/%s/%s %s) already exists in partition' % (
-                    self.partition, self.datagroup, key) in error.message:
+                    self.partition, self.datagroup, key) in error.fault.faultstring:
                 logger.debug('The record already exist. Deleting it before adding it again')
                 self.remove_challenge(domain, path)
                 datagroup.add_string_class_member(class_members)
@@ -85,9 +85,9 @@ class LoadBalancer(object):
         try:
             self.bigip.System.Session.set_active_folder('/%s' % partition)
         except bigsuds.ServerError as error:
-            if 'folder not found' in error.message:
+            if 'folder not found' in error.fault.faultstring:
                 raise PartitionNotFoundError()
-            elif 'Access Denied:' in error.message:
+            elif 'Access Denied:' in error.fault.faultstring:
                 raise AccessDeniedError()
             else:
                 raise
@@ -95,9 +95,9 @@ class LoadBalancer(object):
             pem_csr = self.bigip.Management.KeyCertificate.certificate_request_export_to_pem(
                 'MANAGEMENT_MODE_DEFAULT', [csrname])[0]
         except bigsuds.ServerError as error:
-            if 'Access Denied:' in error.message:
+            if 'Access Denied:' in error.fault.faultstring:
                 raise AccessDeniedError()
-            elif 'Not Found' in error.message:
+            elif 'Not Found' in error.fault.faultstring:
                 raise NotFoundError()
             else:
                 raise
@@ -108,9 +108,9 @@ class LoadBalancer(object):
         try:
             self.bigip.System.Session.set_active_folder('/%s' % partition)
         except bigsuds.ServerError as error:
-            if 'folder not found' in error.message:
+            if 'folder not found' in error.fault.faultstring:
                 raise PartitionNotFoundError()
-            elif 'Access Denied:' in error.message:
+            elif 'Access Denied:' in error.fault.faultstring:
                 raise AccessDeniedError()
             else:
                 raise
@@ -118,7 +118,7 @@ class LoadBalancer(object):
             self.bigip.Management.KeyCertificate.certificate_import_from_pem(
                 'MANAGEMENT_MODE_DEFAULT', [name], [certificates], overwrite)
         except bigsuds.ServerError as error:
-            if 'Access Denied:' in error.message:
+            if 'Access Denied:' in error.fault.faultstring:
                 raise AccessDeniedError()
             else:
                 raise
