@@ -1,6 +1,4 @@
 """The main program"""
-from __future__ import print_function
-
 import os
 import sys
 import errno
@@ -9,7 +7,7 @@ import argparse
 import logging
 import logging.config
 
-from ConfigParser import NoSectionError, NoOptionError
+from configparser import NoSectionError, NoOptionError
 from acme import errors as acme_errors
 
 from . import config
@@ -222,7 +220,7 @@ def revoke(args, configuration):
           'necessary if the certificate is just beeing retired.')
     print('Are you sure you want to continue? Type REVOKE (all caps) if you are sure.')
 
-    choice = raw_input()
+    choice = input()
     if choice != 'REVOKE':
         sys.exit('Exiting...')
 
@@ -234,7 +232,7 @@ def revoke(args, configuration):
         print('3) Affiliation changed')
         print('4) Superseded')
         print('5) Cessation of operation')
-        choice = raw_input().replace(')', '')
+        choice = input().replace(')', '')
     reason = int(choice)
 
     try:
@@ -274,13 +272,13 @@ def register(args, configuration):
     """Genereates a account key, and registeres with the specified CA"""
     print('This will generate an account key and register it with the specified CA.')
     print('Do you want to continue? yes or no')
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice != 'yes' and choice != 'y':
         sys.exit('User did not want to continue. Exiting')
     print('What mail address do you want to register with the account key?')
-    mail = raw_input().lower()
+    mail = input().lower()
     print('You typed in {}, is this correct? yes or no'.format(mail))
-    choice2 = raw_input().lower()
+    choice2 = input().lower()
     if choice2 != 'yes' and choice2 != 'y':
         sys.exit('Wrong mail. Exiting')
 
@@ -304,7 +302,7 @@ def new_config(args, configuration):
           'in the specified configuration folder (default is the current folder)')
     print('Do you want to continue? yes or no')
 
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice != 'yes' and choice != 'y':
         sys.exit('User did not want to continue. Exiting')
 
