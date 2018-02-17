@@ -42,7 +42,7 @@ def test_create_and_read_configfile():
     # the config file should not be world readable, even with an permissive umask
     os.umask(0o0000)
     bigacme.config.create_configfile()
-    assert oct(os.stat(bigacme.config.CONFIG_FILE)[stat.ST_MODE]) == '0100660'
+    assert oct(os.stat(bigacme.config.CONFIG_FILE)[stat.ST_MODE]) == '0o100660'
 
     config = bigacme.config.read_configfile()
 
@@ -83,7 +83,7 @@ def test_create_account_key():
     config = configtp(cm_key='./config/key.pem')
     bigacme.config.create_account_key(config)
     assert os.path.isfile(config.cm_key)
-    assert oct(os.stat('./config/key.pem')[stat.ST_MODE]) == '0100440'
+    assert oct(os.stat('./config/key.pem')[stat.ST_MODE]) == '0o100440'
     with pytest.raises(bigacme.config.KeyAlreadyExistsError):
         bigacme.config.create_account_key(config)
     bigacme.config.delete_account_key(config)

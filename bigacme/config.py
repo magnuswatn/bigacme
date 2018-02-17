@@ -1,7 +1,7 @@
 """Handles the configuration"""
 import os
 import logging
-import ConfigParser
+import configparser
 from collections import namedtuple
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -30,7 +30,7 @@ def read_configfile():
     configtp = namedtuple("Config", ["lb_user", "lb_pwd", "lb1", "lb2", "lb_dg", "lb_dg_partition",
                                      "ca", "ca_proxy", "cm_chain", "cm_key", "cm_renewal_days",
                                      "cm_delayed_days", "plugin"])
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
     if config.getboolean("Certificate Authority", "use proxy"):
         ca_proxy = config.get("Certificate Authority", "proxy")
@@ -46,7 +46,7 @@ def read_configfile():
 
     try:
         plugin_section = config.items('Plugin')
-    except ConfigParser.NoSectionError:
+    except configparser.NoSectionError:
         plugin_section = None
 
     the_config = configtp(
@@ -67,14 +67,14 @@ def read_configfile():
 
 def create_configfile():
     """Creates a default configfile"""
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.add_section('Common')
-    config.set('Common', 'renewal days', 20)
-    config.set('Common', 'delayed installation days', 5)
-    config.set('Common', 'include chain', True)
+    config.set('Common', 'renewal days', '20')
+    config.set('Common', 'delayed installation days', '5')
+    config.set('Common', 'include chain', 'True')
     config.set('Common', 'account key', './config/key.pem')
     config.add_section('Load Balancer')
-    config.set('Load Balancer', 'cluster', True)
+    config.set('Load Balancer', 'cluster', 'True')
     config.set('Load Balancer', 'Host 1', 'lb1.example.com')
     config.set('Load Balancer', 'Host 2', 'lb2.example.com')
     config.set('Load Balancer', 'username', 'admin')
@@ -84,7 +84,7 @@ def create_configfile():
     config.add_section('Certificate Authority')
     config.set('Certificate Authority', 'Directory URL',
                'https://acme-v01.api.letsencrypt.org/directory')
-    config.set('Certificate Authority', 'use proxy', False)
+    config.set('Certificate Authority', 'use proxy', 'False')
     config.set('Certificate Authority', 'proxy',
                'http://proxy.example.com:8080')
 
@@ -103,7 +103,7 @@ def create_logconfigfile(debug):
     Otherwise it will be flooded with suds logging
 
     """
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.add_section('loggers')
 
     if debug:
@@ -124,7 +124,7 @@ def create_logconfigfile(debug):
         config.set('logger_bigacme', 'qualname', 'bigacme')
         config.set('logger_bigacme', 'level', 'DEBUG')
         config.set('logger_bigacme', 'handlers', 'fileHandler')
-        config.set('logger_bigacme', 'propagate', 0)
+        config.set('logger_bigacme', 'propagate', '0')
 
     config.add_section('handler_fileHandler')
     config.set('handler_fileHandler', 'class', 'FileHandler')
@@ -159,7 +159,7 @@ def create_account_key(configuration):
     logging.info('Saving private key to: %s', configuration.cm_key)
 
     # Saving private key to file - we must be careful with the permissions
-    with os.fdopen(os.open(configuration.cm_key, os.O_WRONLY | os.O_CREAT, 0o440), 'w') as key_file:
+    with os.fdopen(os.open(configuration.cm_key, os.O_WRONLY | os.O_CREAT, 0o440), 'wb') as key_file:
         key_file.write(private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
