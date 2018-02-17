@@ -170,7 +170,8 @@ def renew(args, configuration):
 
     dns_plugin = None
     for renewal in renewals:
-        logger.info('Renewing cert: %s from partition: %s', renewal.name, renewal.partition)
+        logger.info('Renewing cert: %s from partition: %s using %s',
+                    renewal.name, renewal.partition, renewal.validation_method)
 
         if renewal.validation_method == 'dns-01' and not dns_plugin:
             try:
