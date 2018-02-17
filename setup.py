@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-execfile('./bigacme/version.py')
+exec(open("./bigacme/version.py").read())
 
 setup(
     name='bigacme',
@@ -27,7 +27,7 @@ setup(
         'Environment :: Console',
         'Intended Audience :: System Administrators',
         'Operating System :: POSIX :: Linux',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.6',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Security',
         'Topic :: System :: Systems Administration',
