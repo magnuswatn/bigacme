@@ -34,7 +34,7 @@ class CertificateAuthority:
         if test:
             self.key = None
         else:
-            with open(configuration.cm_key, "r") as key_file:
+            with open(configuration.cm_key, "rb") as key_file:
                 private_key = serialization.load_pem_private_key(
                     key_file.read(),
                     password=None,
