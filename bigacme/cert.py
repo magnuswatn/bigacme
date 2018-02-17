@@ -27,12 +27,9 @@ def get_certs_that_need_action(config):
         if os.path.isfile(fullpath):
             try:
                 cert = Certificate.load(fullpath)
-            except ValueError as error:
-                if error.message == 'No JSON object could be decoded':
-                    logger.warning('Could not load %s', fullpath)
-                    continue
-                else:
-                    raise
+            except ValueError:
+                logger.warning('Could not load %s', fullpath)
+                continue
             if cert.about_to_expire(config.cm_renewal_days):
                 to_be_renewed.append(cert)
             elif cert.status == 'To be installed' and cert.old_enough(config.cm_delayed_days):
@@ -41,7 +38,7 @@ def get_certs_that_need_action(config):
 
 def _get_cert_dates(pem_cert):
     """Returns the dates in the cert"""
-    cert = x509.load_pem_x509_certificate(str(pem_cert), default_backend())
+    cert = x509.load_pem_x509_certificate(pem_cert.encode(), default_backend())
     logger.debug('Certificate with serial %s, has not before: %s and not after: %s (UTC)',
                  cert.serial, cert.not_valid_before, cert.not_valid_after)
     return cert.not_valid_after.isoformat(), cert.not_valid_before.isoformat()
@@ -69,7 +66,7 @@ def delete_expired_backups():
             with open(fullpath, 'r') as open_file:
                 not_after_str, _ = _get_cert_dates(open_file.read())
         except ValueError as error:
-            if error.message == 'Unable to load certificate':
+            if str(error) == 'Unable to load certificate':
                 logger.warning('Could not load %s as a certificate', filename)
                 continue
             else:
@@ -93,7 +90,7 @@ class Certificate(object):
         with open(fullpath, 'r') as json_bytes:
             loaded = json.loads(json_bytes.read())
         cert = cls(loaded['partition'], loaded['name'])
-        for name, key in loaded.iteritems():
+        for name, key in loaded.items():
             setattr(cert, name, key)
         return cert
 
@@ -136,7 +133,7 @@ class Certificate(object):
 
     @csr.setter
     def csr(self, pem):
-        csr = x509.load_pem_x509_csr(str(pem), default_backend())
+        csr = x509.load_pem_x509_csr(pem.encode(), default_backend())
         self.hostnames = []
         for extension in csr.extensions:
             if extension.oid == x509.SubjectAlternativeName.oid:

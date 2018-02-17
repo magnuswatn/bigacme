@@ -38,7 +38,7 @@ def _generate_certificate(not_before, not_after):
     cert.gmtime_adj_notAfter(not_after)
     cert.set_pubkey(key)
     cert.sign(key, "sha256")
-    return OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert)
+    return OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert).decode()
 
 def _generate_csr(cn, san):
     """Generates a csr for testing purposes"""
@@ -48,17 +48,17 @@ def _generate_csr(cn, san):
     if cn:
         req.get_subject().CN = cn
     if san:
-        sn = ([OpenSSL.crypto.X509Extension("subjectAltName", False, san)])
+        sn = ([OpenSSL.crypto.X509Extension(b'subjectAltName', False, san)])
         req.add_extensions(sn)
     req.set_pubkey(key)
     req.sign(key, "sha256")
     return OpenSSL.crypto.dump_certificate_request(
-        OpenSSL.crypto.FILETYPE_PEM, req)
+        OpenSSL.crypto.FILETYPE_PEM, req).decode()
 
 def test_get_certs_that_need_action():
     configtp = namedtuple('Config', ['cm_renewal_days', 'cm_delayed_days'])
     config = configtp(cm_renewal_days=12, cm_delayed_days=4)
-    csr = _generate_csr('commonName', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('commonName', b'DNS:san1,DNS:san2')
 
     # certs to be renewed
     cert_tbr1 = bigacme.cert.Certificate.new('Common', 'cert_tbr1', csr, 'http-01')
@@ -142,7 +142,7 @@ def test__init__certificate():
     assert cert.validation_method == 'http-01'
 
 def test_new_certificate():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Partition', 'test_new_certificate', csr, 'dns-01')
     assert cert.partition == 'Partition'
     assert cert.name == 'test_new_certificate'
@@ -151,7 +151,7 @@ def test_new_certificate():
     assert 'common-name' and 'san1' and 'san2' in cert.hostnames
 
 def test_new_certificate_no_cn():
-    csr = _generate_csr(None, 'DNS:san')
+    csr = _generate_csr(None, b'DNS:san')
     cert = bigacme.cert.Certificate.new('Partition', 'test_new_certificate_no_cn', csr, 'http-01')
     assert cert.csr == csr
     assert cert.hostnames == ['san']
@@ -164,7 +164,7 @@ def test_new_certificate_no_san():
 
 def test_new_certificate_commonName_in_san():
     """Same name both in CN and SAN should not result in duplicate name in hostnames"""
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:common-name,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:common-name,DNS:san2')
     cert = bigacme.cert.Certificate.new('Partition', 'test_new_certificate_no_san', csr, 'http-01')
     assert cert.csr == csr
     assert len(cert.hostnames) == len(set(cert.hostnames))
@@ -174,7 +174,7 @@ def test_get_non_existing_cert():
         bigacme.cert.Certificate.get('Common', 'test_get_non_existing_cert')
 
 def test_save_and_get():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Partition', 'test_save_and_get', csr, 'http-01')
     cert.save()
     cert2 = bigacme.cert.Certificate.get('Partition', 'test_save_and_get')
@@ -182,7 +182,7 @@ def test_save_and_get():
 
 def test_get_without_validation_method():
     """Tests that a json withouth validation method fallbacks to http-01"""
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Partition', 'test_get_without_validation_method', csr,
                                         'dns-01')
     cert.save()
@@ -196,7 +196,7 @@ def test_get_without_validation_method():
     assert cert2.validation_method == 'http-01'
 
 def test_save_and_delete():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_save_and_delete', csr, 'http-01')
     cert.save()
     assert os.path.isfile(cert.path)
@@ -204,14 +204,14 @@ def test_save_and_delete():
     assert not os.path.isfile(cert.path)
 
 def test_get_pem():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_get_pem', csr, 'http-01')
     cert.cert = _generate_certificate(0, 1555200)
     cert.chain = [_generate_certificate(0, 1555200)]
     assert cert.get_pem(False) == cert.cert
 
 def test_get_pem_with_chain():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_get_pem', csr, 'http-01')
     cert.cert = _generate_certificate(0, 1555200)
     cert.chain = [_generate_certificate(0, 1555200)]
@@ -220,7 +220,7 @@ def test_get_pem_with_chain():
     assert cert.get_pem(True) == cert_and_chain
 
 def test_mark_as_installed():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_mark_as_installed', csr, 'http-01')
     cert.save()
     assert cert.status == 'New'
@@ -232,7 +232,7 @@ def test_mark_as_installed():
         assert json.loads(json_bytes.read())['status'] == 'Installed'
 
 def test_renew():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_renew', csr, 'http-01')
     org_cert = _generate_certificate(0, 1555200)
     org_chain = _generate_certificate(0, 1555200)
@@ -244,25 +244,25 @@ def test_renew():
     assert cert.status == 'To be installed'
 
 def test_old_enough():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_old_enough', csr, 'http-01')
     cert.cert = _generate_certificate(-1980000, 4320000)
     assert cert.old_enough(13)
 
 def test_not_old_enough():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_old_enough', csr, 'http-01')
     cert.cert = _generate_certificate(0, 4320000)
     assert not cert.old_enough(14)
 
 def test_about_to_expire():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_about_to_expire', csr, 'http-01')
     cert.cert = _generate_certificate(-10800, 432000)
     assert cert.about_to_expire(14)
 
 def test_not_about_to_expire():
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_not_about_to_expire', csr, 'http-01')
     cert.cert = _generate_certificate(-10800, 432000000)
     assert not cert.about_to_expire(14)
@@ -277,7 +277,7 @@ def test_save_when_owned_by_another_user(opt_user):
     """
     if os.geteuid() != 0:
         pytest.skip("Not running as root")
-    csr = _generate_csr('common-name', 'DNS:san1,DNS:san2')
+    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
     cert = bigacme.cert.Certificate.new('Common', 'test_save_when_owned_by_another_user', csr,
                                         'http-01')
     cert.save()
