@@ -1,4 +1,6 @@
 """The main program"""
+from __future__ import print_function
+
 import os
 import sys
 import errno
@@ -120,7 +122,7 @@ def new_cert(args, configuration):
         dns_plugin = None
         chall_typ = 'http-01'
 
-    print "Getting the CSR from the Big-IP..."
+    print('Getting the CSR from the Big-IP...')
 
     try:
         with click_spinner.spinner():
@@ -137,7 +139,7 @@ def new_cert(args, configuration):
         sys.exit('Could not find the csr on the big-ip. Check the spelling.')
 
     certobj = cert.Certificate.new(args.partition, args.csrname, csr, chall_typ)
-    print "Getting a new certificate from the CA. This may take a while..."
+    print('Getting a new certificate from the CA. This may take a while...')
     acme_ca = ca.CertificateAuthority(configuration)
 
     try:
@@ -157,7 +159,7 @@ def new_cert(args, configuration):
     certobj.cert, certobj.chain = certificate, chain
     bigip.upload_certificate(args.partition, args.csrname, certobj.get_pem(configuration.cm_chain))
     certobj.mark_as_installed()
-    print "Done."
+    print('Done.')
 
 def renew(args, configuration):
     """Goes through all the issued certs and renews them if needed"""
@@ -211,14 +213,14 @@ def remove(args, configuration):
         sys.exit("The specified certificate was not found")
     logger.info('User %s removed cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
-    print "Certificate %s in partition %s removed" % (args.csrname, args.partition)
+    print('Certificate {} in partition {} removed'.format(args.csrname, args.partition))
 
 def revoke(args, configuration):
     """Revokes a certificate"""
-    print "This will REVOKE the specified certificate. It will no longer be usable.\r\n"
-    print ("You should ONLY do this if the private key has been compromised. It is not "
-           "necessary if the certificate is just beeing retired.")
-    print "Are you sure you want to continue? Type REVOKE (all caps) if you are sure."
+    print('This will REVOKE the specified certificate. It will no longer be usable.\r\n')
+    print('You should ONLY do this if the private key has been compromised. It is not '
+          'necessary if the certificate is just beeing retired.')
+    print('Are you sure you want to continue? Type REVOKE (all caps) if you are sure.')
 
     choice = raw_input()
     if choice != 'REVOKE':
@@ -226,12 +228,12 @@ def revoke(args, configuration):
 
     choice = ''
     while choice not in ('0', '1', '3', '4', '5'):
-        print "What is the reason you are revoking this cert?"
-        print "0) Unspecified"
-        print "1) Key compromise"
-        print "3) Affiliation changed"
-        print "4) Superseded"
-        print "5) Cessation of operation"
+        print('What is the reason you are revoking this cert?')
+        print('0) Unspecified')
+        print('1) Key compromise')
+        print('3) Affiliation changed')
+        print('4) Superseded')
+        print('5) Cessation of operation')
         choice = raw_input().replace(')', '')
     reason = int(choice)
 
@@ -245,39 +247,39 @@ def revoke(args, configuration):
     certificate.delete()
     logger.info('User %s revoked cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
-    print "Certificate %s in partition %s revoked" % (args.csrname, args.partition)
+    print('Certificate {} in partition {} revoked'.format(args.csrname, args.partition))
 
 def test(args, configuration):
     """Tests the connections to the load balancer and the ca"""
     try:
         lb.LoadBalancer(configuration)
     except: # pylint: disable=W0702
-        print "Could not connect to the load balancer. Check the log."
+        print('Could not connect to the load balancer. Check the log.')
         logger.exception("Could not connect to the load balancer:")
     else:
-        print "The connection to the load balancer was successfull"
+        print('The connection to the load balancer was successfull')
     try:
         ca.CertificateAuthority(configuration, test=True)
     except: # pylint: disable=W0702
-        print "Could not connect to the CA. Check the log."
+        print('Could not connect to the CA. Check the log.')
         logger.exception("Could not connect to the CA:")
     else:
-        print "The connection to the CA was successfull"
+        print('The connection to the CA was successfull')
 
 def print_version(args, configuration):
     """Prints the version number and exits"""
-    print version.__version__
+    print(version.__version__)
 
 def register(args, configuration):
     """Genereates a account key, and registeres with the specified CA"""
-    print "This will generate an account key and register it with the specified CA."
-    print "Do you want to continue? yes or no"
+    print('This will generate an account key and register it with the specified CA.')
+    print('Do you want to continue? yes or no')
     choice = raw_input().lower()
     if choice != 'yes' and choice != 'y':
         sys.exit('User did not want to continue. Exiting')
-    print "What mail address do you want to register with the account key?"
+    print('What mail address do you want to register with the account key?')
     mail = raw_input().lower()
-    print "You typed in %s, is this correct? yes or no" % mail
+    print('You typed in {}, is this correct? yes or no'.format(mail))
     choice2 = raw_input().lower()
     if choice2 != 'yes' and choice2 != 'y':
         sys.exit('Wrong mail. Exiting')
@@ -294,13 +296,13 @@ def register(args, configuration):
         config.delete_account_key(configuration)
         logger.exception('Failed to register with the CA:')
         sys.exit('The registration failed. The error was: %s' % error)
-    print 'Registration successful'
+    print('Registration successful')
 
 def new_config(args, configuration):
     """Creates the enviroment with configuration files and folders"""
-    print("This will create the necessary folder structure, and configuration files "
-          "in the specified configuration folder (default is the current folder)")
-    print "Do you want to continue? yes or no"
+    print('This will create the necessary folder structure, and configuration files '
+          'in the specified configuration folder (default is the current folder)')
+    print('Do you want to continue? yes or no')
 
     choice = raw_input().lower()
     if choice != 'yes' and choice != 'y':
@@ -312,21 +314,21 @@ def new_config(args, configuration):
         except OSError as error:
             if (error.errno == errno.EEXIST and
                     os.path.isdir(folder)):
-                print "The folder %s already exists" % folder
+                print('The folder {} already exists'.format(folder))
             else:
                 raise
 
     if not os.path.exists(config.CONFIG_FILE):
         config.create_configfile()
     else:
-        print "The config file already exists. Not touching it"
+        print('The config file already exists. Not touching it')
 
     if not os.path.exists(config.LOG_CONFIG_FILE):
         config.create_logconfigfile(args.debug)
     else:
-        print "The logging config file already exists. Not touching it"
+        print('The logging config file already exists. Not touching it')
 
-    print "Done! Adjust the configuration files as needed"
+    print('Done! Adjust the configuration files as needed')
 
 def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
     logger.debug("The csr has the following hostnames: %s", csr.hostnames)
