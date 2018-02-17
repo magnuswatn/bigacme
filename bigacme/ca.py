@@ -27,7 +27,7 @@ class UnknownValidationType(CAError):
     """Raised when the validation type is not recognized"""
     pass
 
-class CertificateAuthority(object):
+class CertificateAuthority:
     """Represent a Certificate Authority"""
 
     def __init__(self, configuration, test=False):

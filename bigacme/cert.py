@@ -75,7 +75,7 @@ def delete_expired_backups():
             logger.debug("Deleting cert %s", fullpath)
             os.remove(fullpath)
 
-class Certificate(object):
+class Certificate:
     """Represents a stored certificate + csr"""
     def __init__(self, partition, name):
         self._csr = self._cert = self.chain = None

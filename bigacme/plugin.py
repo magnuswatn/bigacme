@@ -43,7 +43,7 @@ def get_plugin(configuration):
 
     raise NoPluginFoundError
 
-class BigacmePlugin(object):
+class BigacmePlugin:
     """This class represent a bigacme DNS plugin"""
 
     name = 'generic bigacme plugin'

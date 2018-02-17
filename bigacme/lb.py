@@ -26,7 +26,7 @@ class NotFoundError(LoadBalancerError):
     """Raised when the specified resource was not found on the load balander"""
     pass
 
-class LoadBalancer(object):
+class LoadBalancer:
     """Represent the LoadBalancer"""
 
     def __init__(self, config):
