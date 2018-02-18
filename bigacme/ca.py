@@ -89,11 +89,11 @@ class CertificateAuthority:
             else:
                 raise GetCertificateFailedError("The CA could not verify the challenges")
 
-        cert = certificateresource.body._dump(OpenSSL.crypto.FILETYPE_PEM) # pylint: disable=protected-access
+        cert = certificateresource.body._dump(OpenSSL.crypto.FILETYPE_PEM).decode() # pylint: disable=protected-access
         chain_certs = self.client.fetch_chain(certificateresource)
         chain = []
         for chaincert in chain_certs:
-            chain.append(chaincert._dump(OpenSSL.crypto.FILETYPE_PEM)) # pylint: disable=protected-access
+            chain.append(chaincert._dump(OpenSSL.crypto.FILETYPE_PEM).decode()) # pylint: disable=protected-access
         return cert, chain
 
     def return_tuple_from_challenges(self, challenges):
