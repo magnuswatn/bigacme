@@ -1,4 +1,6 @@
 """Functions that interacts with the CA"""
+import os
+import json
 import logging
 import datetime
 from collections import namedtuple
@@ -8,7 +10,7 @@ from acme import client
 from acme import messages
 from acme import errors as acme_errors
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 import OpenSSL
 
@@ -27,32 +29,71 @@ class GetCertificateFailedError(CAError):
 class UnknownValidationType(CAError):
     """Raised when the validation type is not recognized"""
     pass
+class AccountInfoExistsError(CAError):
+    """Raised when the account file already exists."""
+    pass
 
 class CertificateAuthority:
     """Represent a Certificate Authority"""
 
-    def __init__(self, configuration, test=False):
-        if test:
-            self.key = None
-        else:
-            with open(configuration.cm_key, "rb") as key_file:
-                private_key = serialization.load_pem_private_key(
-                    key_file.read(),
-                    password=None,
-                    backend=default_backend()
-                    )
-            self.key = jose.JWKRSA(key=private_key)
+    def __init__(self, configuration):
+        self.account_file = configuration.cm_account
         user_agent = 'bigacme (https://github.com/magnuswatn/bigacme/)'
-        network = client.ClientNetwork(self.key, user_agent=user_agent)
-        directory = messages.Directory.from_json(network.get(configuration.ca).json())
+
+        try:
+            self.load_account()
+        except FileNotFoundError:
+            # For registration and testing
+            self.kid, self.key = None, None
+
+        network = client.ClientNetwork(self.key, user_agent=user_agent,
+                                       account=messages.RegistrationResource(uri=self.kid))
+
         network.session.proxies = {'https': configuration.ca_proxy}
+        directory = messages.Directory.from_json(network.get(configuration.ca).json())
         self.client = client.ClientV2(directory, network)
+
+    def load_account(self):
+        """Loads the account information (key and kid) from disk"""
+        with open(self.account_file, 'r') as open_file:
+            account_json = open_file.read()
+        account_info = json.loads(account_json)
+        self.kid = account_info['kid']
+        self.key = jose.JWKRSA.from_json(account_info['key'])
+
+    def create_account_key(self):
+        """Creates an account key"""
+        logger.debug('Generating account key')
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=4096,
+            backend=default_backend()
+        )
+        self.key = jose.JWKRSA(key=private_key)
+        self.client.net.key = self.key
+
+    def save_account(self):
+        """Saves the account key and id to the file specified in the config"""
+        if os.path.exists(self.account_file):
+            raise AccountInfoExistsError
+
+        account_info = {'kid': self.kid, 'key': self.key.to_json()}
+        account_json = json.dumps(account_info, indent=4, sort_keys=True)
+
+        # Saving private key to file - we must be careful with the permissions
+        file_name = self.account_file
+        with os.fdopen(os.open(file_name, os.O_WRONLY | os.O_CREAT, 0o440), 'w') as open_file:
+            open_file.write(account_json)
 
     def register(self, mail):
         """Registers an account with the ca"""
+        self.create_account_key()
+        # The user has already agreed to the tos in main.py
         new_regr = messages.NewRegistration.from_data(email=mail, terms_of_service_agreed=True)
-        self.client.new_account(new_regr)
-        logger.info("Registered with the CA")
+        regr = self.client.new_account(new_regr)
+        self.kid = regr.uri
+        self.save_account()
+        logger.info('Registered with the CA. Key ID: %s', self.kid)
 
     def order_new_cert(self, csr):
         return self.client.new_order(csr)

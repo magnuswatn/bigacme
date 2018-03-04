@@ -257,7 +257,7 @@ def test(args, configuration):
     else:
         print('The connection to the load balancer was successfull')
     try:
-        ca.CertificateAuthority(configuration, test=True)
+        ca.CertificateAuthority(configuration)
     except: # pylint: disable=W0702
         print('Could not connect to the CA. Check the log.')
         logger.exception("Could not connect to the CA:")
@@ -270,29 +270,34 @@ def print_version(args, configuration):
 
 def register(args, configuration):
     """Genereates a account key, and registeres with the specified CA"""
+    acme_ca = ca.CertificateAuthority(configuration)
+    if acme_ca.key:
+        sys.exit('Account config already exists - already registered?')
+
     print('This will generate an account key and register it with the specified CA.')
     print('Do you want to continue? yes or no')
     choice = input().lower()
-    if choice != 'yes' and choice != 'y':
-        sys.exit('User did not want to continue. Exiting')
-    print('What mail address do you want to register with the account key?')
+    if choice not in ['y', 'ya', 'yes', 'yass']:
+        sys.exit('OK. Bye bye.')
+
+    if 'terms_of_service' in acme_ca.client.directory.meta:
+        print(f'Do you agree with the terms of service, as described at '
+              f'{acme_ca.client.directory.meta.terms_of_service}?')
+        choice2 = input().lower()
+        if choice2 not in ['y', 'ya', 'yes', 'yass']:
+            sys.exit('You must agree to the terms of service to register.')
+
+    print('What mail address do you want to register with the account?')
     mail = input().lower()
+
     print(f'You typed in {mail}, is this correct? yes or no.')
-    choice2 = input().lower()
-    if choice2 != 'yes' and choice2 != 'y':
+    choice3 = input().lower()
+    if choice3 not in ['y', 'ya', 'yes', 'yass']:
         sys.exit('Wrong mail. Exiting')
 
     try:
-        config.create_account_key(configuration)
-    except config.KeyAlreadyExistsError:
-        sys.exit("Key file already exists. You can not register a key twice. \r\n"
-                 "You must delete it to register again.")
-    acme_ca = ca.CertificateAuthority(configuration)
-    try:
-        # TODO: the user should agreer to the tos first!
         acme_ca.register(mail)
     except acme_errors.Error as error:
-        config.delete_account_key(configuration)
         logger.exception('Failed to register with the CA:')
         sys.exit(f'The registration failed. The error was: {error}')
     print('Registration successful')
