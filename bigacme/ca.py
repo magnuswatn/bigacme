@@ -110,7 +110,7 @@ def _return_desired_challenges(challenges, typ):
     for challenge in challenges:
         desired_challenge = [ch for ch in challenge.body.challenges if ch.typ == typ]
         if desired_challenge:
-            desired_challenges += [[challenge.body.identifier.value, desired_challenge[0]]]
+            desired_challenges += [(challenge.body.identifier.value, desired_challenge[0])]
         else:
             raise NoDesiredChallenge(f'The CA didn\'t provide a {typ} challenge')
     return desired_challenges
