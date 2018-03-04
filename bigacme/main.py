@@ -86,8 +86,8 @@ def main():
         try:
             the_config = config.read_configfile()
         except (NoSectionError, NoOptionError, ValueError) as error:
-            sys.exit(("The configuration files was found, but was not complete. "
-                      "The error was: %s" % error.message))
+            sys.exit(('The configuration files was found, but was not complete. '
+                      f'The error was: {error}'))
     else:
         the_config = None
 
@@ -95,7 +95,7 @@ def main():
         args.func(args, the_config)
     except Exception: # pylint: disable=W0703
         logger.exception('An exception occured:')
-        sys.exit("An unexpected error occured. Check the log for the details")
+        sys.exit('An unexpected error occured. Check the log for the details')
 
 def new_cert(args, configuration):
     """Fetches the specified CSR from the device and retrieves a certificate from the CA"""
@@ -107,13 +107,13 @@ def new_cert(args, configuration):
         try:
             dns_plugin = plugin.get_plugin(configuration)
         except plugin.NoPluginFoundError:
-            logger.error("No DNS plugin was found. "
-                         "Unable to get certificate by using DNS validation without plugin.")
-            sys.exit("No DNS plugin was found. A DNS plugin is needed for DNS validation.")
+            logger.error('No DNS plugin was found. '
+                         'Unable to get certificate by using DNS validation without plugin.')
+            sys.exit('No DNS plugin was found. A DNS plugin is needed for DNS validation.')
 
         except plugin.InvalidConfigError as error:
-            logger.exception("Failed to initialize plugin. Error was: %s", error.message)
-            sys.exit("Failed to initialize plugin. Error was: %s" % error.message)
+            logger.exception('Failed to initialize plugin. Error was: %s', error)
+            sys.exit(f'Failed to initialize plugin. Error was: {error}')
 
         chall_typ = 'dns-01'
     else:
@@ -126,14 +126,14 @@ def new_cert(args, configuration):
         with click_spinner.spinner():
             csr = bigip.get_csr(args.partition, args.csrname)
     except lb.PartitionNotFoundError:
-        logger.error("The partition was not found on the device")
-        sys.exit("The specified partition does not seem to exist.")
+        logger.error('The partition was not found on the device')
+        sys.exit('The specified partition does not seem to exist.')
     except lb.AccessDeniedError:
-        logger.error("The user was denied access by the load balancer")
-        sys.exit("The user was denied access by the load balancer. "
-                 "Do the user have the Certificate Manager role in the specified partition?")
+        logger.error('The user was denied access by the load balancer')
+        sys.exit('The user was denied access by the load balancer. '
+                 'Do the user have the Certificate Manager role in the specified partition?')
     except lb.NotFoundError:
-        logger.error("The CSR was not found on the device")
+        logger.error('The CSR was not found on the device')
         sys.exit('Could not find the csr on the big-ip. Check the spelling.')
 
     certobj = cert.Certificate.new(args.partition, args.csrname, csr, chall_typ)
@@ -144,15 +144,15 @@ def new_cert(args, configuration):
         with click_spinner.spinner():
             certificate, chain = _get_new_cert(acme_ca, bigip, certobj, dns_plugin)
     except ca.GetCertificateFailedError as error:
-        logger.error("Could not get a certificate from the CA. The error was: %s", error.message)
+        logger.error('Could not get a certificate from the CA. The error was: %s', error)
         if chall_typ == 'http-01':
-            sys.exit(("Could not get a certificate from the CA. Is the iRule attached to the "
-                      "Virtual Server? The error was: %s" % error.message))
+            sys.exit(('Could not get a certificate from the CA. Is the iRule attached to the '
+                      f'Virtual Server? The error was: {error}'))
         else:
-            sys.exit(("Could not get a certificate from the CA. The error was: %s" % error.message))
+            sys.exit(f'Could not get a certificate from the CA. The error was: {error}')
     except plugin.PluginError as error:
         logger.exception('An error occured in %s:', dns_plugin.name)
-        sys.exit('An error occured while solving the challenge(s): %s' % error)
+        sys.exit(f'An error occured while solving the challenge(s): {error}')
 
     certobj.cert, certobj.chain = certificate, chain
     bigip.upload_certificate(args.partition, args.csrname, certobj.get_pem(configuration.cm_chain))
@@ -211,7 +211,7 @@ def remove(args, configuration):
         sys.exit("The specified certificate was not found")
     logger.info('User %s removed cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
-    print('Certificate {} in partition {} removed'.format(args.csrname, args.partition))
+    print(f'Certificate {args.csrname} in partition {args.partition} removed')
 
 def revoke(args, configuration):
     """Revokes a certificate"""
@@ -245,7 +245,7 @@ def revoke(args, configuration):
     certificate.delete()
     logger.info('User %s revoked cert %s in partition %s', getpass.getuser(),
                 args.csrname, args.partition)
-    print('Certificate {} in partition {} revoked'.format(args.csrname, args.partition))
+    print(f'Certificate {args.csrname} in partition {args.partition} revoked')
 
 def test(args, configuration):
     """Tests the connections to the load balancer and the ca"""
@@ -277,7 +277,7 @@ def register(args, configuration):
         sys.exit('User did not want to continue. Exiting')
     print('What mail address do you want to register with the account key?')
     mail = input().lower()
-    print('You typed in {}, is this correct? yes or no'.format(mail))
+    print(f'You typed in {mail}, is this correct? yes or no.')
     choice2 = input().lower()
     if choice2 != 'yes' and choice2 != 'y':
         sys.exit('Wrong mail. Exiting')
@@ -293,7 +293,7 @@ def register(args, configuration):
     except acme_errors.Error as error:
         config.delete_account_key(configuration)
         logger.exception('Failed to register with the CA:')
-        sys.exit('The registration failed. The error was: %s' % error)
+        sys.exit(f'The registration failed. The error was: {error}')
     print('Registration successful')
 
 def new_config(args, configuration):
@@ -312,7 +312,7 @@ def new_config(args, configuration):
         except OSError as error:
             if (error.errno == errno.EEXIST and
                     os.path.isdir(folder)):
-                print('The folder {} already exists'.format(folder))
+                print(f'The folder {folder} already exists.')
             else:
                 raise
 
@@ -343,8 +343,7 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
             dns_plugin.perform(challenge.domain, record_name, challenge.validation)
         dns_plugin.finish_perform()
     else:
-        raise ca.UnknownValidationType('Validation type %s is not recognized' %
-                                       csr.validation_method)
+        raise ca.UnknownValidationType(f'Validation type {csr.validation_method} is not recognized')
 
     acme_ca.answer_challenges(challenges)
     try:
