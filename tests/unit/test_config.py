@@ -7,7 +7,6 @@ import shutil
 import tempfile
 import fileinput
 import logging.config
-from collections import namedtuple
 
 import pytest
 import bigacme.config
@@ -77,17 +76,6 @@ def test_create_and_read_configfile():
     assert len(config.plugin) == 2
     assert config.plugin[0][1] == "yes"
     assert config.plugin[1][1] == "no"
-
-def test_create_account_key():
-    configtp = namedtuple('Config', ['cm_key'])
-    config = configtp(cm_key='./config/key.pem')
-    bigacme.config.create_account_key(config)
-    assert os.path.isfile(config.cm_key)
-    assert oct(os.stat('./config/key.pem')[stat.ST_MODE]) == '0o100440'
-    with pytest.raises(bigacme.config.KeyAlreadyExistsError):
-        bigacme.config.create_account_key(config)
-    bigacme.config.delete_account_key(config)
-    assert not os.path.isfile(config.cm_key)
 
 def test_create_logconfigfile():
     """ Creates a normal logconfig file"""

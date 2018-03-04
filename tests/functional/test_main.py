@@ -78,23 +78,34 @@ def test_recreate_config_with_debug():
         log_config = log_config_file.read()
     assert 'DEBUG' in log_config
 
+# TODO: These tests now cause requests against Let's Encrypt. Should use pebble instead
+
 def test_register_abort():
     """If user regrets, we should abort"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output = cmd.communicate(input=b'no\n')
-    assert output[1].decode() == 'User did not want to continue. Exiting\n'
+    assert output[1].decode() == 'OK. Bye bye.\n'
     assert cmd.returncode == 1
-    assert not os.path.isfile('/config/key.pem')
+    assert not os.path.isfile('/config/account.json')
+
+def test_tos_no_agree():
+    """If the user doesn\'t agree to the tos, we should abort"""
+    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = cmd.communicate(input=b'yes\nno\n')
+    assert output[1].decode() == 'You must agree to the terms of service to register.\n'
+    assert cmd.returncode == 1
+    assert not os.path.isfile('/config/account.json')
 
 def test_register_wrong_email():
     """If user typed in the wrong email, we should abort"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output = cmd.communicate(input=b'yes\nemail@example.com\nno\n')
+    output = cmd.communicate(input=b'yes\nyes\nemail@example.com\nno\n')
     assert output[1].decode() == 'Wrong mail. Exiting\n'
     assert cmd.returncode == 1
-    assert not os.path.isfile('/config/key.pem')
+    assert not os.path.isfile('/config/account.json')
 
 def test_revoke_abort():
     """If user regrets, we should abort"""
