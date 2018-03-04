@@ -334,7 +334,7 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
     logger.debug("Getting the challenges from the CA")
 
     order = acme_ca.order_new_cert(csr.csr)
-    challenges = acme_ca.get_challenges_from_order(order)
+    challenges = acme_ca.get_challenges_from_order(order, csr.validation_method)
 
     if csr.validation_method == 'http-01':
         for challenge in challenges:

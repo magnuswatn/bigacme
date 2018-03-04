@@ -57,9 +57,9 @@ class CertificateAuthority:
     def order_new_cert(self, csr):
         return self.client.new_order(csr)
 
-    def get_challenges_from_order(self, order):
+    def get_challenges_from_order(self, order, validation_method):
         authz = order.authorizations
-        desired_challenges = _return_desired_challenges(authz, 'http-01')
+        desired_challenges = _return_desired_challenges(authz, validation_method)
         return self.return_tuple_from_challenges(desired_challenges)
 
     def answer_challenges(self, challenges):
