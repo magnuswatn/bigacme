@@ -9,7 +9,7 @@ when HTTP_REQUEST {
             return
         }
 
-        set token [HTTP::host]:[string map {"/.well-known/acme-challenge/" ""} [HTTP::path]]
+        set token [getfield [HTTP::host] : 1]:[string map {"/.well-known/acme-challenge/" ""} [HTTP::path]]
         set response [class match -value -- $token equals $datagroup]
 
         if { $response != "" } {
