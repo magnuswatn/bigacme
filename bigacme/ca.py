@@ -139,10 +139,11 @@ class CertificateAuthority:
         return order.fullchain_pem
 
     def return_tuple_from_challenges(self, challenges):
-        """Returns a challenge tuple from a list of challenges"""
+        """Returns tuples with the needed info from the challenges (incl. signed validation)"""
         challtp = namedtuple("Authz", ["domain", "validation", "response", "challenge"])
         tuples = []
         for challenge in challenges:
+            # challenge is a tuple with the domain name and the challenge
             response, validation = challenge[1].response_and_validation(self.key)
             tuples += [challtp(domain=challenge[0], validation=validation, response=response,
                                challenge=challenge[1])]
@@ -155,5 +156,5 @@ def _return_desired_challenges(challenges, typ):
         if desired_challenge:
             desired_challenges += [(challenge.body.identifier.value, desired_challenge[0])]
         else:
-            raise NoDesiredChallenge(f'The CA didn\'t provide a {typ} challenge')
+            raise NoDesiredChallenge(f'The CA didn\'t provide a \'{typ}\' challenge')
     return desired_challenges
