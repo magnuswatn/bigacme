@@ -289,6 +289,7 @@ def register(args, configuration):
                  "You must delete it to register again.")
     acme_ca = ca.CertificateAuthority(configuration)
     try:
+        # TODO: the user should agreer to the tos first!
         acme_ca.register(mail)
     except acme_errors.Error as error:
         config.delete_account_key(configuration)
@@ -332,7 +333,8 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
     logger.debug("The csr has the following hostnames: %s", csr.hostnames)
     logger.debug("Getting the challenges from the CA")
 
-    challenges, authz = acme_ca.get_challenge_for_domains(csr.hostnames, csr.validation_method)
+    order = acme_ca.order_new_cert(csr.csr)
+    challenges = acme_ca.get_challenges_from_order(order)
 
     if csr.validation_method == 'http-01':
         for challenge in challenges:
@@ -347,7 +349,7 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
 
     acme_ca.answer_challenges(challenges)
     try:
-        certificate, chain = acme_ca.get_certificate_from_ca(csr.csr, authz)
+        certificate = acme_ca.get_certificate_from_ca(order)
     finally:
         # cleanup
         if csr.validation_method == 'http-01':
@@ -359,4 +361,4 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
                 dns_plugin.cleanup(challenge.domain, record_name, challenge.validation)
             dns_plugin.finish_cleanup()
 
-    return certificate, chain
+    return certificate, []

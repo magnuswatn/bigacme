@@ -1,5 +1,6 @@
 """Functions that interacts with the CA"""
 import logging
+import datetime
 from collections import namedtuple
 
 import josepy as jose
@@ -43,25 +44,23 @@ class CertificateAuthority:
             self.key = jose.JWKRSA(key=private_key)
         user_agent = 'bigacme (https://github.com/magnuswatn/bigacme/)'
         network = client.ClientNetwork(self.key, user_agent=user_agent)
+        directory = messages.Directory.from_json(network.get(configuration.ca).json())
         network.session.proxies = {'https': configuration.ca_proxy}
-        acme_client = client.Client(directory=configuration.ca, key=self.key, net=network)
-        self.client = acme_client
+        self.client = client.ClientV2(directory, network)
 
     def register(self, mail):
         """Registers an account with the ca"""
-        registration = messages.NewRegistration.from_data(email=mail)
-        regr = self.client.register(registration)
-        logger.info("Auto-accepting TOS: %s", regr.terms_of_service)
-        self.client.agree_to_tos(regr)
+        new_regr = messages.NewRegistration.from_data(email=mail, terms_of_service_agreed=True)
+        self.client.new_account(new_regr)
         logger.info("Registered with the CA")
 
-    def get_challenge_for_domains(self, hostnames, typ):
-        """Asks the CA for challenges for the specified domains"""
-        authz = []
-        for hostname in hostnames:
-            authz += [self.client.request_domain_challenges(hostname)]
-        desired_challenges = _return_desired_challenges(authz, typ)
-        return self.return_tuple_from_challenges(desired_challenges), authz
+    def order_new_cert(self, csr):
+        return self.client.new_order(csr)
+
+    def get_challenges_from_order(self, order):
+        authz = order.authorizations
+        desired_challenges = _return_desired_challenges(authz, 'http-01')
+        return self.return_tuple_from_challenges(desired_challenges)
 
     def answer_challenges(self, challenges):
         """Tells the CA that the challenges has been solved"""
@@ -75,26 +74,26 @@ class CertificateAuthority:
         jose_cert = jose.util.ComparableX509(cert)
         self.client.revoke(jose_cert, reason)
 
-    def get_certificate_from_ca(self, csr_pem, authorizations):
+    def get_certificate_from_ca(self, order):
         """Sends the CSR to the CA and gets a signed certificate in return"""
-        csr = OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr_pem)
-        jose_csr = jose.util.ComparableX509(csr)
         logger.debug("Getting the certificate from the CA")
+        deadline = datetime.datetime.now() + datetime.timedelta(seconds=90)
         try:
-            certificateresource, _ = self.client.poll_and_request_issuance(jose_csr, authorizations)
-        except acme_errors.PollError as error:
-            if error.timeout:
-                raise GetCertificateFailedError(
-                    "Timed out while waiting for the CA to verify the challenges")
-            else:
-                raise GetCertificateFailedError("The CA could not verify the challenges")
-
-        cert = certificateresource.body._dump(OpenSSL.crypto.FILETYPE_PEM).decode() # pylint: disable=protected-access
-        chain_certs = self.client.fetch_chain(certificateresource)
-        chain = []
-        for chaincert in chain_certs:
-            chain.append(chaincert._dump(OpenSSL.crypto.FILETYPE_PEM).decode()) # pylint: disable=protected-access
-        return cert, chain
+            order = self.client.poll_and_finalize(order, deadline=deadline)
+        except acme_errors.ValidationError as error:
+            error_msg = ''
+            for authzr in error.failed_authzrs:
+                for chall in authzr.body.challenges:
+                    if chall.error != None:
+                        error_msg += ('The CA could not verify the challenge for '
+                                      f'{authzr.body.identifier.value}: {chall.error}.')
+            raise GetCertificateFailedError(error_msg)
+        except acme_errors.TimeoutError:
+            raise GetCertificateFailedError(
+                'Timed out while waiting for the CA to verify the challenges')
+        except messages.Error as error:
+            raise GetCertificateFailedError(error)
+        return order.fullchain_pem
 
     def return_tuple_from_challenges(self, challenges):
         """Returns a challenge tuple from a list of challenges"""
@@ -113,5 +112,5 @@ def _return_desired_challenges(challenges, typ):
         if desired_challenge:
             desired_challenges += [[challenge.body.identifier.value, desired_challenge[0]]]
         else:
-            raise NoDesiredChallenge('The CA didn\'t provide a %s challenge' % typ)
+            raise NoDesiredChallenge(f'The CA didn\'t provide a {typ} challenge')
     return desired_challenges
