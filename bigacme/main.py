@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--config-dir', default=".",
                         help="the config dir to use. Defaults to the current folder")
     subparsers = parser.add_subparsers(help="The operation you want to do:", dest="operation")
+    subparsers.required = True
 
     parser_new = subparsers.add_parser(
         "new", help="request a new certificate")

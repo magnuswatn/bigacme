@@ -78,6 +78,11 @@ def test_recreate_config_with_debug():
         log_config = log_config_file.read()
     assert 'DEBUG' in log_config
 
+def test_blank():
+    """With no arguments some usage info should be printed"""
+    cmd = subprocess.Popen(['bigacme'], stderr=subprocess.PIPE)
+    assert 'usage' in  cmd.communicate()[1].decode()
+
 # TODO: These tests now cause requests against Let's Encrypt. Should use pebble instead
 
 def test_register_abort():
