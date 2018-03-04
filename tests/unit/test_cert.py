@@ -148,26 +148,6 @@ def test_new_certificate():
     assert cert.name == 'test_new_certificate'
     assert cert.csr == csr
     assert cert.validation_method == 'dns-01'
-    assert 'common-name' and 'san1' and 'san2' in cert.hostnames
-
-def test_new_certificate_no_cn():
-    csr = _generate_csr(None, b'DNS:san')
-    cert = bigacme.cert.Certificate.new('Partition', 'test_new_certificate_no_cn', csr, 'http-01')
-    assert cert.csr == csr
-    assert cert.hostnames == ['san']
-
-def test_new_certificate_no_san():
-    csr = _generate_csr('common-name', None)
-    cert = bigacme.cert.Certificate.new('Partition', 'test_new_certificate_no_san', csr, 'http-01')
-    assert cert.csr == csr
-    assert cert.hostnames == ['common-name']
-
-def test_new_certificate_commonName_in_san():
-    """Same name both in CN and SAN should not result in duplicate name in hostnames"""
-    csr = _generate_csr('common-name', b'DNS:san1,DNS:common-name,DNS:san2')
-    cert = bigacme.cert.Certificate.new('Partition', 'test_new_certificate_no_san', csr, 'http-01')
-    assert cert.csr == csr
-    assert len(cert.hostnames) == len(set(cert.hostnames))
 
 def test_get_non_existing_cert():
     with pytest.raises(bigacme.cert.CertificateNotFoundError):

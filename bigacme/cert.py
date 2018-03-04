@@ -7,7 +7,6 @@ import datetime
 
 from cryptography.hazmat.backends import default_backend
 from cryptography import x509
-from cryptography.x509.oid import NameOID
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +77,8 @@ def delete_expired_backups():
 class Certificate:
     """Represents a stored certificate + csr"""
     def __init__(self, partition, name):
-        self._csr = self._cert = self.chain = None
-        self.not_after = self.not_before = self.hostnames = None
+        self.csr = self._cert = self.chain = None
+        self.not_after = self.not_before = None
         self.name, self.partition = name, partition
         self.status = 'New'
         self.validation_method = 'http-01'
@@ -125,25 +124,6 @@ class Certificate:
     def cert(self, pem):
         self.not_after, self.not_before = _get_cert_dates(pem)
         self._cert = pem
-
-    @property
-    def csr(self):
-        """The PEM encoded request"""
-        return self._csr
-
-    @csr.setter
-    def csr(self, pem):
-        csr = x509.load_pem_x509_csr(pem.encode(), default_backend())
-        self.hostnames = []
-        for extension in csr.extensions:
-            if extension.oid == x509.SubjectAlternativeName.oid:
-                self.hostnames = extension.value.get_values_for_type(x509.DNSName)
-        # Let's Encrypt uses the commonName, in addition to the SANs, so we do the same
-        if csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME):
-            common_name = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-            if common_name not in self.hostnames:
-                self.hostnames.append(common_name)
-        self._csr = pem
 
     def save(self):
         """Saves the cert object to disk"""

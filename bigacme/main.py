@@ -336,7 +336,6 @@ def new_config(args, configuration):
     print('Done! Adjust the configuration files as needed')
 
 def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
-    logger.debug("The csr has the following hostnames: %s", csr.hostnames)
     logger.debug("Getting the challenges from the CA")
 
     order = acme_ca.order_new_cert(csr.csr)
