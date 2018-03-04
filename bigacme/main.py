@@ -216,6 +216,12 @@ def remove(args, configuration):
 
 def revoke(args, configuration):
     """Revokes a certificate"""
+
+    try:
+        certificate = cert.Certificate.get(args.partition, args.csrname)
+    except cert.CertificateNotFoundError:
+        sys.exit("The specified certificate was not found.")
+
     print('This will REVOKE the specified certificate. It will no longer be usable.\r\n')
     print('You should ONLY do this if the private key has been compromised. It is not '
           'necessary if the certificate is just beeing retired.')
@@ -235,11 +241,6 @@ def revoke(args, configuration):
         print('5) Cessation of operation')
         choice = input().replace(')', '')
     reason = int(choice)
-
-    try:
-        certificate = cert.Certificate.get(args.partition, args.csrname)
-    except cert.CertificateNotFoundError:
-        sys.exit("The specified certificate was not found.")
 
     acme_ca = ca.CertificateAuthority(configuration)
     acme_ca.revoke_certifciate(certificate.cert, reason)

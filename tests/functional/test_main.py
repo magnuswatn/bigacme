@@ -7,6 +7,7 @@ import tempfile
 import fileinput
 import subprocess
 
+from bigacme import cert
 from bigacme import version
 
 ORG_CWD = os.getcwd()
@@ -114,6 +115,7 @@ def test_register_wrong_email():
 
 def test_revoke_abort():
     """If user regrets, we should abort"""
+    cert.Certificate('Common', 'cert').save()
     cmd = subprocess.Popen(['bigacme', 'revoke', 'Common', 'cert'], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output = cmd.communicate(input=b'revoke\n') # note not caps
