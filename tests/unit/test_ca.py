@@ -60,3 +60,27 @@ def test_return_desired_challenges_missing_for_one():
 
     with pytest.raises(ca.NoDesiredChallenge):
         ca._return_desired_challenges(authzr, 'dns-01')
+
+
+def test_validate_cert_chain_vaild_chain():
+    """With a normal chain with certs, nothing should happen"""
+    pem_chain = """
+    -----BEGIN CERTIFICATE-----
+    tralallalalal
+    -----END CERTIFICATE-----
+    -----BEGIN CERTIFICATE-----
+    tralallalalal
+    -----END CERTIFICATE-----"""
+    ca._validate_cert_chain(pem_chain)
+
+def test_validate_cert_chain_invaild_chain():
+    """Should raise an exception if the cert chain contains fishy stuff"""
+    pem_chain = """
+    -----BEGIN CERTIFICATE-----
+    tralallalalal
+    -----END CERTIFICATE-----
+    -----BEGIN PRIVATE KEY-----
+    tralallalalal
+    -----END PRIVATE KEY-----"""
+    with pytest.raises(ca.ReceivedInvalidCertificateError):
+        ca._validate_cert_chain(pem_chain)

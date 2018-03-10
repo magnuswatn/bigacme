@@ -1,5 +1,6 @@
 """Functions that interacts with the CA"""
 import os
+import re
 import json
 import logging
 import datetime
@@ -31,6 +32,9 @@ class UnknownValidationType(CAError):
     pass
 class AccountInfoExistsError(CAError):
     """Raised when the account file already exists."""
+    pass
+class ReceivedInvalidCertificateError(CAError):
+    """Raised when the certificate returned from the CA as malformed."""
     pass
 
 class CertificateAuthority:
@@ -136,6 +140,10 @@ class CertificateAuthority:
                 'Timed out while waiting for the CA to verify the challenges')
         except messages.Error as error:
             raise GetCertificateFailedError(error)
+
+        # sanity check, ref 11.3 of the ACME spec
+        _validate_cert_chain(order.fullchain_pem)
+
         return order.fullchain_pem
 
     def return_tuple_from_challenges(self, challenges):
@@ -158,3 +166,10 @@ def _return_desired_challenges(challenges, typ):
         else:
             raise NoDesiredChallenge(f'The CA didn\'t provide a \'{typ}\' challenge')
     return desired_challenges
+
+def _validate_cert_chain(pem_cert):
+    """Validates that the PEM chain only includes certificates"""
+    for begin_string in re.findall(r'-----BEGIN [^-]*-----', pem_cert):
+        if begin_string != '-----BEGIN CERTIFICATE-----':
+            raise ReceivedInvalidCertificateError(
+                f'Received certificate with invalid BEGIN string: {begin_string}')
