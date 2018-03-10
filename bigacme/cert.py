@@ -77,7 +77,7 @@ def delete_expired_backups():
 class Certificate:
     """Represents a stored certificate + csr"""
     def __init__(self, partition, name):
-        self.csr = self._cert = self.chain = None
+        self.csr = self._cert = None
         self.not_after = self.not_before = None
         self.name, self.partition = name, partition
         self.status = 'New'
@@ -148,22 +148,14 @@ class Certificate:
         self.status = 'Installed'
         self.save()
 
-    def renew(self, cert, chain):
+    def renew(self, cert):
         """Backups the cert, sets a new one with status 'To be installed'"""
         backup_path = './cert/backup/%s_%s.cer' % (self.partition, self.name)
         with open(backup_path, 'w') as open_file:
-            open_file.write(self.get_pem(True))
-        self.cert, self.chain = cert, chain
+            open_file.write(self.cert)
+        self.cert = cert
         self.status = 'To be installed'
         self.save()
-
-    def get_pem(self, include_chain):
-        "Returns the PEM encoded cert, optionally with chain"
-        chain = self.cert
-        if include_chain:
-            for cert in self.chain:
-                chain += cert
-        return chain
 
     def delete(self):
         """Removes the certificate from disk"""

@@ -22,7 +22,7 @@ def check_configfiles():
 def read_configfile():
     """Reads the configfile and creates a config object"""
     configtp = namedtuple("Config", ["lb_user", "lb_pwd", "lb1", "lb2", "lb_dg", "lb_dg_partition",
-                                     "ca", "ca_proxy", "cm_chain", "cm_account", "cm_renewal_days",
+                                     "ca", "ca_proxy", "cm_account", "cm_renewal_days",
                                      "cm_delayed_days", "plugin"])
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
@@ -52,7 +52,6 @@ def read_configfile():
         lb_dg_partition=config.get("Load Balancer", "datagroup partition"),
         ca=config.get("Certificate Authority", "directory url"),
         ca_proxy=ca_proxy,
-        cm_chain=config.getboolean("Common", "include chain"),
         cm_account=config.get("Common", "account config"),
         cm_renewal_days=int(config.get("Common", "renewal days")),
         cm_delayed_days=int(config.get("Common", "delayed installation days")),
@@ -65,7 +64,6 @@ def create_configfile():
     config.add_section('Common')
     config.set('Common', 'renewal days', '20')
     config.set('Common', 'delayed installation days', '5')
-    config.set('Common', 'include chain', 'True')
     config.set('Common', 'account config', './config/account.json')
     config.add_section('Load Balancer')
     config.set('Load Balancer', 'cluster', 'True')

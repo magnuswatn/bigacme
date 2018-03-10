@@ -143,7 +143,7 @@ def new_cert(args, configuration):
 
     try:
         with click_spinner.spinner():
-            certificate, chain = _get_new_cert(acme_ca, bigip, certobj, dns_plugin)
+            certificate = _get_new_cert(acme_ca, bigip, certobj, dns_plugin)
     except ca.GetCertificateFailedError as error:
         logger.error('Could not get a certificate from the CA. The error was: %s', error)
         if chall_typ == 'http-01':
@@ -155,8 +155,8 @@ def new_cert(args, configuration):
         logger.exception('An error occured in %s:', dns_plugin.name)
         sys.exit(f'An error occured while solving the challenge(s): {error}')
 
-    certobj.cert, certobj.chain = certificate, chain
-    bigip.upload_certificate(args.partition, args.csrname, certobj.get_pem(configuration.cm_chain))
+    certobj.cert = certificate
+    bigip.upload_certificate(args.partition, args.csrname, certobj.cert)
     certobj.mark_as_installed()
     print('Done.')
 
@@ -183,18 +183,18 @@ def renew(args, configuration):
                 continue
 
         try:
-            certificate, chain = _get_new_cert(acme_ca, bigip, renewal, dns_plugin)
+            certificate = _get_new_cert(acme_ca, bigip, renewal, dns_plugin)
         except (ca.GetCertificateFailedError, lb.LoadBalancerError, plugin.PluginError):
             logger.exception("Could not renew certificate %s in partition %s:",
                              renewal.name, renewal.partition)
             continue
-        renewal.renew(certificate, chain)
+        renewal.renew(certificate)
 
     for tbi_cert in certs_to_be_installed:
         logger.info('Installing cert: %s in partition: %s', tbi_cert.name, tbi_cert.partition)
         try:
             bigip.upload_certificate(tbi_cert.partition, tbi_cert.name,
-                                     tbi_cert.get_pem(configuration.cm_chain))
+                                     tbi_cert.cert)
         except lb.LoadBalancerError:
             logger.exception("Could not install certificate %s in partition %s:",
                              tbi_cert.name, tbi_cert.partition)
@@ -367,4 +367,4 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
                 dns_plugin.cleanup(challenge.domain, record_name, challenge.validation)
             dns_plugin.finish_cleanup()
 
-    return certificate, []
+    return certificate

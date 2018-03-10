@@ -183,21 +183,6 @@ def test_save_and_delete():
     cert.delete()
     assert not os.path.isfile(cert.path)
 
-def test_get_pem():
-    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
-    cert = bigacme.cert.Certificate.new('Common', 'test_get_pem', csr, 'http-01')
-    cert.cert = _generate_certificate(0, 1555200)
-    cert.chain = [_generate_certificate(0, 1555200)]
-    assert cert.get_pem(False) == cert.cert
-
-def test_get_pem_with_chain():
-    csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
-    cert = bigacme.cert.Certificate.new('Common', 'test_get_pem', csr, 'http-01')
-    cert.cert = _generate_certificate(0, 1555200)
-    cert.chain = [_generate_certificate(0, 1555200)]
-    cert_and_chain = cert.cert + cert.chain[0]
-    assert cert.cert and cert.chain[0] in cert.get_pem(True)
-    assert cert.get_pem(True) == cert_and_chain
 
 def test_mark_as_installed():
     csr = _generate_csr('common-name', b'DNS:san1,DNS:san2')
@@ -216,10 +201,12 @@ def test_renew():
     cert = bigacme.cert.Certificate.new('Common', 'test_renew', csr, 'http-01')
     org_cert = _generate_certificate(0, 1555200)
     org_chain = _generate_certificate(0, 1555200)
-    cert.cert, cert.chain = org_cert, org_chain
+    org_cert_and_chain = org_cert + org_chain
+    cert.cert = org_cert_and_chain
     new_cert = _generate_certificate(0, 1555200)
     new_chain = _generate_certificate(0, 1555200)
-    cert.renew(new_cert, [new_chain])
+    new_cert_and_chain = new_cert + new_chain
+    cert.renew(new_cert_and_chain)
     assert os.path.isfile('./cert/backup/Common_test_renew.cer')
     assert cert.status == 'To be installed'
 
