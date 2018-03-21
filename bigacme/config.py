@@ -75,7 +75,7 @@ def create_configfile():
     config.set('Load Balancer', 'datagroup partition', 'Common')
     config.add_section('Certificate Authority')
     config.set('Certificate Authority', 'Directory URL',
-               'https://acme-v01.api.letsencrypt.org/directory')
+               'https://acme-v02.api.letsencrypt.org/directory')
     config.set('Certificate Authority', 'use proxy', 'False')
     config.set('Certificate Authority', 'proxy',
                'http://proxy.example.com:8080')
