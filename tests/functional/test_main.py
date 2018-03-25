@@ -2,8 +2,6 @@
 import re
 import os
 import sys
-import shutil
-import tempfile
 import fileinput
 import subprocess
 
@@ -109,7 +107,7 @@ def test_register_abort():
     output = cmd.communicate(input=b'no\n')
     assert output[1].decode() == 'OK. Bye bye.\n'
     assert cmd.returncode == 1
-    assert not os.path.isfile('/config/account.json')
+    assert not os.path.isfile('config/account.json')
 
 @working_dir
 def test_tos_no_agree():
@@ -119,7 +117,7 @@ def test_tos_no_agree():
     output = cmd.communicate(input=b'yes\nno\n')
     assert output[1].decode() == 'You must agree to the terms of service to register.\n'
     assert cmd.returncode == 1
-    assert not os.path.isfile('/config/account.json')
+    assert not os.path.isfile('config/account.json')
 
 @working_dir
 def test_register_wrong_email():
@@ -129,7 +127,7 @@ def test_register_wrong_email():
     output = cmd.communicate(input=b'yes\nyes\nemail@example.com\nno\n')
     assert output[1].decode() == 'Wrong mail. Exiting\n'
     assert cmd.returncode == 1
-    assert not os.path.isfile('/config/account.json')
+    assert not os.path.isfile('config/account.json')
 
 @working_dir
 def test_revoke_abort():
