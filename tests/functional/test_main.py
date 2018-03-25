@@ -9,17 +9,27 @@ import subprocess
 
 from bigacme import cert
 from bigacme import version
+from bigacme import config
 
-ORG_CWD = os.getcwd()
+def empty_dir(func):
+    """Sets the working directory to an empty directory"""
+    def tempdir_wrapper(tmpdir):
+        old_dir = tmpdir.chdir()
+        func()
+        old_dir.chdir()
+    return tempdir_wrapper
 
-def setup_module(module):
-    temp_dir = tempfile.mkdtemp()
-    os.chdir(temp_dir)
-
-def teardown_module(module):
-    if '/tmp/' in os.getcwd():
-        shutil.rmtree(os.getcwd())
-    os.chdir(ORG_CWD)
+def working_dir(func):
+    """Sets the working directory to an directory with config files"""
+    def tempdir_wrapper(tmpdir):
+        old_dir = tmpdir.chdir()
+        for folder in config.CONFIG_DIRS:
+            os.makedirs(folder)
+        config.create_configfile()
+        config.create_logconfigfile(False)
+        func()
+        old_dir.chdir()
+    return tempdir_wrapper
 
 def test_version():
     """The 'bigacme version' command should output the verison number (plus newline)"""
@@ -33,6 +43,7 @@ def test_nonexisting_config_folder():
     assert cmd.communicate()[1].decode() == 'Could not locate the specified configuration folder\n'
     assert cmd.returncode == 1
 
+@empty_dir
 def test_nonexisting_config_files():
     """The cli should fail if there is no config files in the config folder"""
     cmd = subprocess.Popen(['bigacme', 'new', 'Common', 'test'], stderr=subprocess.PIPE)
@@ -40,6 +51,7 @@ def test_nonexisting_config_files():
                                              'specified folder\n')
     assert cmd.returncode == 1
 
+@empty_dir
 def test_config_abort():
     """When we abort the config command, it should not do anything"""
     cmd = subprocess.Popen(['bigacme', 'config'], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -49,6 +61,7 @@ def test_config_abort():
     for folder in folders:
         assert not os.path.isdir(folder)
 
+@empty_dir
 def test_config():
     """The config command should create the nessecary folders"""
     cmd = subprocess.Popen(['bigacme', 'config'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -60,12 +73,14 @@ def test_config():
     for fil in files:
         assert os.path.isfile(fil)
 
+@working_dir
 def test_recreate_config():
     """The config should gracefully fail if the folders exists"""
     cmd = subprocess.Popen(['bigacme', 'config'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     cmd.communicate(input=b'yes\n')
     assert cmd.returncode is 0
 
+@working_dir
 def test_recreate_config_with_debug():
     """The config should recreate the missing config files, with debug config"""
     os.rmdir('cert/backup')
@@ -86,6 +101,7 @@ def test_blank():
 
 # TODO: These tests now cause requests against Let's Encrypt. Should use pebble instead
 
+@working_dir
 def test_register_abort():
     """If user regrets, we should abort"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
@@ -95,6 +111,7 @@ def test_register_abort():
     assert cmd.returncode == 1
     assert not os.path.isfile('/config/account.json')
 
+@working_dir
 def test_tos_no_agree():
     """If the user doesn\'t agree to the tos, we should abort"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
@@ -104,6 +121,7 @@ def test_tos_no_agree():
     assert cmd.returncode == 1
     assert not os.path.isfile('/config/account.json')
 
+@working_dir
 def test_register_wrong_email():
     """If user typed in the wrong email, we should abort"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
@@ -113,6 +131,7 @@ def test_register_wrong_email():
     assert cmd.returncode == 1
     assert not os.path.isfile('/config/account.json')
 
+@working_dir
 def test_revoke_abort():
     """If user regrets, we should abort"""
     cert.Certificate('Common', 'cert').save()
@@ -122,6 +141,7 @@ def test_revoke_abort():
     assert output[1].decode() == 'Exiting...\n'
     assert cmd.returncode == 1
 
+@working_dir
 def test_incomplete_config_files():
     """
     The CLI should fail if the config files are not complete
