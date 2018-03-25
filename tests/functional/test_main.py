@@ -2,6 +2,8 @@
 import re
 import os
 import sys
+import json
+import datetime
 import fileinput
 import subprocess
 
@@ -204,14 +206,6 @@ def test_incomplete_config_files():
     assert b'Certificate Authority' in stderr
 
 @use_pebble
-def test_register(pebble):
-    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    cmd.communicate(input=b'yes\nyes\nemail@example.com\nyes\n')
-    assert cmd.returncode == 0
-    assert os.path.isfile('config/account.json')
-
-@use_pebble
 def test_register_fails(pebble):
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -221,16 +215,80 @@ def test_register_fails(pebble):
     assert not os.path.isfile('config/account.json')
 
 @use_pebble
-def test_new_cert(pebble):
-    """Issues a new certificate from pebble"""
-    # TODO: this requires the CSR to be on the bigip. Should we create one instead?
+def test_issuance_flow(pebble):
+    """
+    Here we test the whole issuance flow from start, to renewal
+
+    (revocation is not supported by Pebble atm)
+    """
+    register()
+    get_new_cert()
+    get_new_cert_that_fails()
+    renew_cert()
+    install_cert()
+
+def register():
+    """Registeres an account with Pebble"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     cmd.communicate(input=b'yes\nyes\nemail@example.com\nyes\n')
+    assert cmd.returncode == 0
+    assert os.path.isfile('config/account.json')
 
-    cmd2 = subprocess.Popen(['bigacme', 'new', 'Common', 'test_new_cert_Pebble'],
-                            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    output = cmd2.communicate(timeout=300)
+def get_new_cert():
+    """Issues a new certificate from pebble"""
+    # TODO: this requires the CSR to be on the bigip. Should we create one instead?
+    cmd = subprocess.Popen(['bigacme', 'new', 'Common', 'get_new_cert_Pebble'],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = cmd.communicate(timeout=300)
     assert 'Done.' in output[0].decode()
-    assert cmd2.returncode == 0
+    assert cmd.returncode == 0
+
+def get_new_cert_that_fails():
+    """Tries to issue a new cert, but fails"""
+    # TODO: this requires the CSR to be on the bigip. Should we create one instead?
+    cmd = subprocess.Popen(['bigacme', 'new', 'Common', 'get_new_cert_that_fails_Pebble'],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = cmd.communicate(timeout=300)
+
+    assert ('Could not get a certificate from the CA' and 'The CA could not verify the challenge'
+            and 'no such host') in output[1].decode()
+    assert cmd.returncode != 0
+
+def renew_cert():
+    # We set the not after time to 10 days in the future. That should mark if for renewal
+    certobj = cert.Certificate.get('Common', 'get_new_cert_Pebble')
+    new_expr_date = datetime.datetime.today().utcnow() + datetime.timedelta(days=10)
+    certobj.not_after = new_expr_date.replace(microsecond=0).isoformat()
+    certobj.save()
+
+    cmd = subprocess.Popen(['bigacme', 'renew'], stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    cmd.communicate(timeout=300)
+
+    with open('log.log', 'r') as open_log:
+        log_text = open_log.read()
+    print(log_text)
+    assert cmd.returncode == 0
+    assert 'Renewing cert' in log_text
+
+    certobj = cert.Certificate.get('Common', 'get_new_cert_Pebble')
+    assert certobj.status == 'To be installed'
+
+def install_cert():
+    # We set the not before before to 10 days in the past. That should mark if for installation
+    certobj = cert.Certificate.get('Common', 'get_new_cert_Pebble')
+    new_expr_date = datetime.datetime.today().utcnow() - datetime.timedelta(days=10)
+    certobj.not_before= new_expr_date.replace(microsecond=0).isoformat()
+    certobj.save()
+
+    cmd = subprocess.Popen(['bigacme', 'renew'], stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    cmd.communicate(timeout=300)
+    assert cmd.returncode == 0
+    with open('log.log', 'r') as open_log:
+        log_text = open_log.read()
+    assert 'Installing cert' in log_text
+
+    certobj = cert.Certificate.get('Common', 'get_new_cert_Pebble')
+    assert certobj.status == 'Installed'
