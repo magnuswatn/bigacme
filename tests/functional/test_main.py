@@ -15,8 +15,10 @@ def empty_dir(func):
     """Sets the working directory to an empty directory"""
     def tempdir_wrapper(tmpdir):
         old_dir = tmpdir.chdir()
-        func()
-        old_dir.chdir()
+        try:
+            func()
+        finally:
+            old_dir.chdir()
     return tempdir_wrapper
 
 def working_dir(func):
@@ -27,13 +29,15 @@ def working_dir(func):
             os.makedirs(folder)
         config.create_configfile()
         config.create_logconfigfile(False)
-        func()
-        old_dir.chdir()
+        try:
+            func()
+        finally:
+            old_dir.chdir()
     return tempdir_wrapper
 
 def use_pebble(func):
     """Creates an config with pebble as the CA, and returns the pebble process"""
-    def tempdir_wrapper(tmpdir, pebble, opt_username, opt_password, opt_lb):
+    def pebble_wrapper(tmpdir, pebble, opt_username, opt_password, opt_lb):
         os.environ['REQUESTS_CA_BUNDLE'] = os.path.abspath('tests/functional/pebble/pebble.minica.pem')
         old_dir = tmpdir.chdir()
         for folder in config.CONFIG_DIRS:
@@ -47,9 +51,11 @@ def use_pebble(func):
             mod4 = re.sub('username = .*', f'username = {opt_username}', mod3)
             mod5 = re.sub('password = .*', f'password = {opt_password}', mod4)
             sys.stdout.write(mod5)
-        func(pebble)
-        old_dir.chdir()
-    return tempdir_wrapper
+        try:
+            func(pebble)
+        finally:
+            old_dir.chdir()
+    return pebble_wrapper
 
 @pytest.fixture(scope='session')
 def pebble():
@@ -66,7 +72,7 @@ def pebble():
 
 
 def test_version():
-    """The 'bigacme version' command should output the verison number (plus newline)"""
+    """The 'bigacme version' command should output the version number (plus newline)"""
     output = subprocess.check_output(['bigacme', 'version']).decode().split('\n')[0]
     assert output == version.__version__
 
@@ -106,6 +112,15 @@ def test_config():
     files = ["config/config.ini", "config/logging.ini"]
     for fil in files:
         assert os.path.isfile(fil)
+
+@working_dir
+def test_remove_nonexisting_cert():
+    """We should give the user feedback if removing of a cert failed"""
+    cmd = subprocess.Popen(['bigacme', 'remove', 'Common', 'notacert'],
+                           stderr=subprocess.PIPE)
+    output = cmd.communicate()
+    assert cmd.returncode is 1
+    assert 'The specified certificate was not found' in output[1].decode()
 
 @working_dir
 def test_recreate_config():
@@ -195,6 +210,15 @@ def test_register(pebble):
     cmd.communicate(input=b'yes\nyes\nemail@example.com\nyes\n')
     assert cmd.returncode == 0
     assert os.path.isfile('config/account.json')
+
+@use_pebble
+def test_register_fails(pebble):
+    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = cmd.communicate(input=b'yes\nyes\nnotanemailatall\nyes\n')
+    assert 'The registration failed' in output[1].decode()
+    assert cmd.returncode == 1
+    assert not os.path.isfile('config/account.json')
 
 @use_pebble
 def test_new_cert(pebble):
