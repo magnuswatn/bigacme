@@ -5,6 +5,8 @@ import sys
 import fileinput
 import subprocess
 
+import pytest
+
 from bigacme import cert
 from bigacme import version
 from bigacme import config
@@ -28,6 +30,36 @@ def working_dir(func):
         func()
         old_dir.chdir()
     return tempdir_wrapper
+
+def use_pebble(func):
+    """Creates an config with pebble as the CA, and returns the pebble process"""
+    def tempdir_wrapper(tmpdir, pebble):
+        os.environ['REQUESTS_CA_BUNDLE'] = os.path.abspath('tests/functional/pebble/pebble.minica.pem')
+        old_dir = tmpdir.chdir()
+        for folder in config.CONFIG_DIRS:
+            os.makedirs(folder)
+        config.create_configfile()
+        config.create_logconfigfile(False)
+        for line in fileinput.input('./config/config.ini', inplace=True):
+            sys.stdout.write(re.sub('directory url = .*',
+                                    r'directory url = https://localhost:14000/dir', line))
+        func(pebble)
+        old_dir.chdir()
+    return tempdir_wrapper
+
+@pytest.fixture(scope='session')
+def pebble():
+    pebble_proc = subprocess.Popen(['tests/functional/pebble/pebble', '-config',
+                                    'tests/functional/pebble/pebble-config.json'],
+                                   stdout=subprocess.PIPE)
+
+    while b'Pebble running' not in pebble_proc.stdout.readline():
+        pebble_proc.poll()
+        if pebble_proc.returncode is not None:
+            raise Exception('Pebble failed to start')
+    yield pebble_proc
+    pebble_proc.kill()
+
 
 def test_version():
     """The 'bigacme version' command should output the verison number (plus newline)"""
@@ -153,3 +185,11 @@ def test_incomplete_config_files():
     assert b'The configuration files was found, but was not complete.' in stderr
     # should also say which section is missing
     assert b'Certificate Authority' in stderr
+
+@use_pebble
+def test_register(pebble):
+    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd.communicate(input=b'yes\nyes\nemail@example.com\nyes\n')
+    assert cmd.returncode == 0
+    assert os.path.isfile('config/account.json')
