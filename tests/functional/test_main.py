@@ -129,10 +129,8 @@ def test_blank():
     cmd = subprocess.Popen(['bigacme'], stderr=subprocess.PIPE)
     assert 'usage' in  cmd.communicate()[1].decode()
 
-# TODO: These tests now cause requests against Let's Encrypt. Should use pebble instead
-
-@working_dir
-def test_register_abort():
+@use_pebble
+def test_register_abort(pebble):
     """If user regrets, we should abort"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -141,8 +139,8 @@ def test_register_abort():
     assert cmd.returncode == 1
     assert not os.path.isfile('config/account.json')
 
-@working_dir
-def test_tos_no_agree():
+@use_pebble
+def test_tos_no_agree(pebble):
     """If the user doesn\'t agree to the tos, we should abort"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -151,8 +149,8 @@ def test_tos_no_agree():
     assert cmd.returncode == 1
     assert not os.path.isfile('config/account.json')
 
-@working_dir
-def test_register_wrong_email():
+@use_pebble
+def test_register_wrong_email(pebble):
     """If user typed in the wrong email, we should abort"""
     cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -161,8 +159,8 @@ def test_register_wrong_email():
     assert cmd.returncode == 1
     assert not os.path.isfile('config/account.json')
 
-@working_dir
-def test_revoke_abort():
+@use_pebble
+def test_revoke_abort(pebble):
     """If user regrets, we should abort"""
     cert.Certificate('Common', 'cert').save()
     cmd = subprocess.Popen(['bigacme', 'revoke', 'Common', 'cert'], stdin=subprocess.PIPE,
