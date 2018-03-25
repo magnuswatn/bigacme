@@ -33,7 +33,7 @@ def working_dir(func):
 
 def use_pebble(func):
     """Creates an config with pebble as the CA, and returns the pebble process"""
-    def tempdir_wrapper(tmpdir, pebble):
+    def tempdir_wrapper(tmpdir, pebble, opt_username, opt_password, opt_lb):
         os.environ['REQUESTS_CA_BUNDLE'] = os.path.abspath('tests/functional/pebble/pebble.minica.pem')
         old_dir = tmpdir.chdir()
         for folder in config.CONFIG_DIRS:
@@ -41,8 +41,12 @@ def use_pebble(func):
         config.create_configfile()
         config.create_logconfigfile(False)
         for line in fileinput.input('./config/config.ini', inplace=True):
-            sys.stdout.write(re.sub('directory url = .*',
-                                    r'directory url = https://localhost:14000/dir', line))
+            mod1 = re.sub('directory .*', r'directory url = https://localhost:14000/dir', line)
+            mod2 = re.sub('cluster = .*', 'cluster = False', mod1)
+            mod3 = re.sub('host 1 = .*', f'host 1 = {opt_lb}', mod2)
+            mod4 = re.sub('username = .*', f'username = {opt_username}', mod3)
+            mod5 = re.sub('password = .*', f'password = {opt_password}', mod4)
+            sys.stdout.write(mod5)
         func(pebble)
         old_dir.chdir()
     return tempdir_wrapper
@@ -191,3 +195,18 @@ def test_register(pebble):
     cmd.communicate(input=b'yes\nyes\nemail@example.com\nyes\n')
     assert cmd.returncode == 0
     assert os.path.isfile('config/account.json')
+
+@use_pebble
+def test_new_cert(pebble):
+    """Issues a new certificate from pebble"""
+    # TODO: this requires the CSR to be on the bigip. Should we create one instead?
+    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd.communicate(input=b'yes\nyes\nemail@example.com\nyes\n')
+
+    cmd2 = subprocess.Popen(['bigacme', 'new', 'Common', 'test_new_cert_Pebble'],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    output = cmd2.communicate(timeout=300)
+    assert 'Done.' in output[0].decode()
+    assert cmd2.returncode == 0
