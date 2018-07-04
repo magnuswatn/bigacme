@@ -2,17 +2,27 @@
 import logging
 from pkg_resources import iter_entry_points
 
+
 class PluginError(Exception):
     """Superclass for all plugin exceptions."""
-    pass
-class InvalidConfigError(PluginError):
-    """Raised when the plugin configuration does not match the plugin"""
-    pass
-class NoPluginFoundError(PluginError):
-    """Raised when no plugin was found"""
+
     pass
 
+
+class InvalidConfigError(PluginError):
+    """Raised when the plugin configuration does not match the plugin"""
+
+    pass
+
+
+class NoPluginFoundError(PluginError):
+    """Raised when no plugin was found"""
+
+    pass
+
+
 logger = logging.getLogger(__name__)
+
 
 def get_plugin(configuration):
     """Discovers, and returns, the installed plugin"""
@@ -25,7 +35,7 @@ def get_plugin(configuration):
         plugin_config[param] = value
 
     plugins = []
-    for entry_point in iter_entry_points(group='bigacme.plugins'):
+    for entry_point in iter_entry_points(group="bigacme.plugins"):
         plugins += [entry_point]
 
     if len(plugins) > 1:
@@ -35,18 +45,19 @@ def get_plugin(configuration):
         plugin = plugins[0].load()
 
         if not issubclass(plugin, BigacmePlugin):
-            raise PluginError('Plugin is not a valid bigacme plugin')
+            raise PluginError("Plugin is not a valid bigacme plugin")
 
-        logger.debug('Using plugin %s', plugin.name)
+        logger.debug("Using plugin %s", plugin.name)
 
         return plugin(**plugin_config)
 
     raise NoPluginFoundError
 
+
 class BigacmePlugin:
     """This class represent a bigacme DNS plugin"""
 
-    name = 'generic bigacme plugin'
+    name = "generic bigacme plugin"
 
     def __init__(self, **kwargs):
         """

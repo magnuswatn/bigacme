@@ -12,18 +12,23 @@ from bigacme import cert
 from bigacme import version
 from bigacme import config
 
+
 def empty_dir(func):
     """Sets the working directory to an empty directory"""
+
     def tempdir_wrapper(tmpdir):
         old_dir = tmpdir.chdir()
         try:
             func()
         finally:
             old_dir.chdir()
+
     return tempdir_wrapper
+
 
 def working_dir(func):
     """Sets the working directory to an directory with config files"""
+
     def tempdir_wrapper(tmpdir):
         old_dir = tmpdir.chdir()
         for folder in config.CONFIG_DIRS:
@@ -34,79 +39,106 @@ def working_dir(func):
             func()
         finally:
             old_dir.chdir()
+
     return tempdir_wrapper
+
 
 def use_pebble(func):
     """Creates an config with pebble as the CA, and returns the pebble process"""
+
     def pebble_wrapper(tmpdir, pebble, opt_username, opt_password, opt_lb):
-        os.environ['REQUESTS_CA_BUNDLE'] = os.path.abspath('tests/functional/pebble/pebble.minica.pem')
+        os.environ["REQUESTS_CA_BUNDLE"] = os.path.abspath(
+            "tests/functional/pebble/pebble.minica.pem"
+        )
         old_dir = tmpdir.chdir()
         for folder in config.CONFIG_DIRS:
             os.makedirs(folder)
         config.create_configfile()
         config.create_logconfigfile(False)
-        for line in fileinput.input('./config/config.ini', inplace=True):
-            mod1 = re.sub('directory .*', r'directory url = https://localhost:14000/dir', line)
-            mod2 = re.sub('cluster = .*', 'cluster = False', mod1)
-            mod3 = re.sub('host 1 = .*', f'host 1 = {opt_lb}', mod2)
-            mod4 = re.sub('username = .*', f'username = {opt_username}', mod3)
-            mod5 = re.sub('password = .*', f'password = {opt_password}', mod4)
+        for line in fileinput.input("./config/config.ini", inplace=True):
+            mod1 = re.sub(
+                "directory .*", r"directory url = https://localhost:14000/dir", line
+            )
+            mod2 = re.sub("cluster = .*", "cluster = False", mod1)
+            mod3 = re.sub("host 1 = .*", f"host 1 = {opt_lb}", mod2)
+            mod4 = re.sub("username = .*", f"username = {opt_username}", mod3)
+            mod5 = re.sub("password = .*", f"password = {opt_password}", mod4)
             sys.stdout.write(mod5)
         try:
             func(pebble)
         finally:
             old_dir.chdir()
+
     return pebble_wrapper
 
-@pytest.fixture(scope='session')
-def pebble():
-    pebble_proc = subprocess.Popen(['tests/functional/pebble/pebble', '-config',
-                                    'tests/functional/pebble/pebble-config.json'],
-                                   stdout=subprocess.PIPE)
 
-    while b'Pebble running' not in pebble_proc.stdout.readline():
+@pytest.fixture(scope="session")
+def pebble():
+    pebble_proc = subprocess.Popen(
+        [
+            "tests/functional/pebble/pebble",
+            "-config",
+            "tests/functional/pebble/pebble-config.json",
+        ],
+        stdout=subprocess.PIPE,
+    )
+
+    while b"Pebble running" not in pebble_proc.stdout.readline():
         pebble_proc.poll()
         if pebble_proc.returncode is not None:
-            raise Exception('Pebble failed to start')
+            raise Exception("Pebble failed to start")
     yield pebble_proc
     pebble_proc.kill()
 
 
 def test_version():
     """The 'bigacme version' command should output the version number (plus newline)"""
-    output = subprocess.check_output(['bigacme', 'version']).decode().split('\n')[0]
+    output = subprocess.check_output(["bigacme", "version"]).decode().split("\n")[0]
     assert output == version.__version__
+
 
 def test_nonexisting_config_folder():
     """The cli should fail if you point it at a nonexisting config folder"""
-    cmd = subprocess.Popen(['bigacme', '--config-dir', '/not/a/folder', 'config'],
-                           stderr=subprocess.PIPE)
-    assert cmd.communicate()[1].decode() == 'Could not locate the specified configuration folder\n'
+    cmd = subprocess.Popen(
+        ["bigacme", "--config-dir", "/not/a/folder", "config"], stderr=subprocess.PIPE
+    )
+    assert (
+        cmd.communicate()[1].decode()
+        == "Could not locate the specified configuration folder\n"
+    )
     assert cmd.returncode == 1
+
 
 @empty_dir
 def test_nonexisting_config_files():
     """The cli should fail if there is no config files in the config folder"""
-    cmd = subprocess.Popen(['bigacme', 'new', 'Common', 'test'], stderr=subprocess.PIPE)
-    assert cmd.communicate()[1].decode() == ('Could not find the configuration files in the '
-                                             'specified folder\n')
+    cmd = subprocess.Popen(["bigacme", "new", "Common", "test"], stderr=subprocess.PIPE)
+    assert cmd.communicate()[1].decode() == (
+        "Could not find the configuration files in the " "specified folder\n"
+    )
     assert cmd.returncode == 1
+
 
 @empty_dir
 def test_config_abort():
     """When we abort the config command, it should not do anything"""
-    cmd = subprocess.Popen(['bigacme', 'config'], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    output = cmd.communicate(input=b'no\n')
-    assert output[1].decode() == 'User did not want to continue. Exiting\n'
+    cmd = subprocess.Popen(
+        ["bigacme", "config"], stdin=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    output = cmd.communicate(input=b"no\n")
+    assert output[1].decode() == "User did not want to continue. Exiting\n"
     folders = ["config", "cert", "cert/backup"]
     for folder in folders:
         assert not os.path.isdir(folder)
 
+
 @empty_dir
 def test_config():
     """The config command should create the nessecary folders"""
-    cmd = subprocess.Popen(['bigacme', 'config'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    cmd.communicate(input=b'yes\n')
+    cmd = subprocess.Popen(
+        ["bigacme", "config"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    cmd.communicate(input=b"yes\n")
     folders = ["config", "cert", "cert/backup"]
     for folder in folders:
         assert os.path.isdir(folder)
@@ -114,80 +146,109 @@ def test_config():
     for fil in files:
         assert os.path.isfile(fil)
 
+
 @working_dir
 def test_remove_nonexisting_cert():
     """We should give the user feedback if removing of a cert failed"""
-    cmd = subprocess.Popen(['bigacme', 'remove', 'Common', 'notacert'],
-                           stderr=subprocess.PIPE)
+    cmd = subprocess.Popen(
+        ["bigacme", "remove", "Common", "notacert"], stderr=subprocess.PIPE
+    )
     output = cmd.communicate()
     assert cmd.returncode is 1
-    assert 'The specified certificate was not found' in output[1].decode()
+    assert "The specified certificate was not found" in output[1].decode()
+
 
 @working_dir
 def test_recreate_config():
     """The config should gracefully fail if the folders exists"""
-    cmd = subprocess.Popen(['bigacme', 'config'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    cmd.communicate(input=b'yes\n')
+    cmd = subprocess.Popen(
+        ["bigacme", "config"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    cmd.communicate(input=b"yes\n")
     assert cmd.returncode is 0
+
 
 @working_dir
 def test_recreate_config_with_debug():
     """The config should recreate the missing config files, with debug config"""
-    os.rmdir('cert/backup')
-    os.remove('./config/logging.ini')
-    cmd = subprocess.Popen(['bigacme', 'config', '-debug'],
-                           stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    cmd.communicate(input=b'yes\n')
-    assert os.path.isfile('./config/logging.ini')
-    assert os.path.isdir('./cert/backup')
-    with open('./config/logging.ini') as log_config_file:
+    os.rmdir("cert/backup")
+    os.remove("./config/logging.ini")
+    cmd = subprocess.Popen(
+        ["bigacme", "config", "-debug"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    cmd.communicate(input=b"yes\n")
+    assert os.path.isfile("./config/logging.ini")
+    assert os.path.isdir("./cert/backup")
+    with open("./config/logging.ini") as log_config_file:
         log_config = log_config_file.read()
-    assert 'DEBUG' in log_config
+    assert "DEBUG" in log_config
+
 
 def test_blank():
     """With no arguments some usage info should be printed"""
-    cmd = subprocess.Popen(['bigacme'], stderr=subprocess.PIPE)
-    assert 'usage' in  cmd.communicate()[1].decode()
+    cmd = subprocess.Popen(["bigacme"], stderr=subprocess.PIPE)
+    assert "usage" in cmd.communicate()[1].decode()
+
 
 @use_pebble
 def test_register_abort(pebble):
     """If user regrets, we should abort"""
-    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output = cmd.communicate(input=b'no\n')
-    assert output[1].decode() == 'OK. Bye bye.\n'
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate(input=b"no\n")
+    assert output[1].decode() == "OK. Bye bye.\n"
     assert cmd.returncode == 1
-    assert not os.path.isfile('config/account.json')
+    assert not os.path.isfile("config/account.json")
+
 
 @use_pebble
 def test_tos_no_agree(pebble):
     """If the user doesn\'t agree to the tos, we should abort"""
-    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output = cmd.communicate(input=b'yes\nno\n')
-    assert output[1].decode() == 'You must agree to the terms of service to register.\n'
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate(input=b"yes\nno\n")
+    assert output[1].decode() == "You must agree to the terms of service to register.\n"
     assert cmd.returncode == 1
-    assert not os.path.isfile('config/account.json')
+    assert not os.path.isfile("config/account.json")
+
 
 @use_pebble
 def test_register_wrong_email(pebble):
     """If user typed in the wrong email, we should abort"""
-    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output = cmd.communicate(input=b'yes\nyes\nemail@example.com\nno\n')
-    assert output[1].decode() == 'Wrong mail. Exiting\n'
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate(input=b"yes\nyes\nemail@example.com\nno\n")
+    assert output[1].decode() == "Wrong mail. Exiting\n"
     assert cmd.returncode == 1
-    assert not os.path.isfile('config/account.json')
+    assert not os.path.isfile("config/account.json")
+
 
 @use_pebble
 def test_revoke_abort(pebble):
     """If user regrets, we should abort"""
-    cert.Certificate('Common', 'cert').save()
-    cmd = subprocess.Popen(['bigacme', 'revoke', 'Common', 'cert'], stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output = cmd.communicate(input=b'revoke\n') # note not caps
-    assert output[1].decode() == 'Exiting...\n'
+    cert.Certificate("Common", "cert").save()
+    cmd = subprocess.Popen(
+        ["bigacme", "revoke", "Common", "cert"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate(input=b"revoke\n")  # note not caps
+    assert output[1].decode() == "Exiting...\n"
     assert cmd.returncode == 1
+
 
 @working_dir
 def test_incomplete_config_files():
@@ -195,23 +256,29 @@ def test_incomplete_config_files():
     The CLI should fail if the config files are not complete
     and it should print what is wrong with the config
     """
-    for line in fileinput.input('./config/config.ini', inplace=True):
-        sys.stdout.write(re.sub('\[Certificate Authority\]', '[what]', line))
-    cmd = subprocess.Popen(['bigacme', 'new', 'Common', 'test'], stderr=subprocess.PIPE)
+    for line in fileinput.input("./config/config.ini", inplace=True):
+        sys.stdout.write(re.sub("\[Certificate Authority\]", "[what]", line))
+    cmd = subprocess.Popen(["bigacme", "new", "Common", "test"], stderr=subprocess.PIPE)
     stderr = cmd.communicate()[1]
     assert cmd.returncode == 1
-    assert b'The configuration files was found, but was not complete.' in stderr
+    assert b"The configuration files was found, but was not complete." in stderr
     # should also say which section is missing
-    assert b'Certificate Authority' in stderr
+    assert b"Certificate Authority" in stderr
+
 
 @use_pebble
 def test_register_fails(pebble):
-    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output = cmd.communicate(input=b'yes\nyes\nnotanemailatall\nyes\n')
-    assert 'The registration failed' in output[1].decode()
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate(input=b"yes\nyes\nnotanemailatall\nyes\n")
+    assert "The registration failed" in output[1].decode()
     assert cmd.returncode == 1
-    assert not os.path.isfile('config/account.json')
+    assert not os.path.isfile("config/account.json")
+
 
 @use_pebble
 def test_issuance_flow(pebble):
@@ -226,68 +293,88 @@ def test_issuance_flow(pebble):
     renew_cert()
     install_cert()
 
+
 def register():
     """Registeres an account with Pebble"""
-    cmd = subprocess.Popen(['bigacme', 'register'], stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    cmd.communicate(input=b'yes\nyes\nemail@example.com\nyes\n')
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    cmd.communicate(input=b"yes\nyes\nemail@example.com\nyes\n")
     assert cmd.returncode == 0
-    assert os.path.isfile('config/account.json')
+    assert os.path.isfile("config/account.json")
+
 
 def get_new_cert():
     """Issues a new certificate from pebble"""
     # TODO: this requires the CSR to be on the bigip. Should we create one instead?
-    cmd = subprocess.Popen(['bigacme', 'new', 'Common', 'get_new_cert_Pebble'],
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd = subprocess.Popen(
+        ["bigacme", "new", "Common", "get_new_cert_Pebble"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     output = cmd.communicate(timeout=300)
-    assert 'Done.' in output[0].decode()
+    assert "Done." in output[0].decode()
     assert cmd.returncode == 0
+
 
 def get_new_cert_that_fails():
     """Tries to issue a new cert, but fails"""
     # TODO: this requires the CSR to be on the bigip. Should we create one instead?
-    cmd = subprocess.Popen(['bigacme', 'new', 'Common', 'get_new_cert_that_fails_Pebble'],
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd = subprocess.Popen(
+        ["bigacme", "new", "Common", "get_new_cert_that_fails_Pebble"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     output = cmd.communicate(timeout=300)
 
-    assert ('Could not get a certificate from the CA' and 'The CA could not verify the challenge'
-            and 'no such host') in output[1].decode()
+    assert (
+        "Could not get a certificate from the CA"
+        and "The CA could not verify the challenge"
+        and "no such host"
+    ) in output[1].decode()
     assert cmd.returncode != 0
+
 
 def renew_cert():
     # We set the not after time to 10 days in the future. That should mark if for renewal
-    certobj = cert.Certificate.get('Common', 'get_new_cert_Pebble')
+    certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
     new_expr_date = datetime.datetime.today().utcnow() + datetime.timedelta(days=10)
     certobj.not_after = new_expr_date.replace(microsecond=0).isoformat()
     certobj.save()
 
-    cmd = subprocess.Popen(['bigacme', 'renew'], stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
+    cmd = subprocess.Popen(
+        ["bigacme", "renew"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     cmd.communicate(timeout=300)
 
-    with open('log.log', 'r') as open_log:
+    with open("log.log", "r") as open_log:
         log_text = open_log.read()
     print(log_text)
     assert cmd.returncode == 0
-    assert 'Renewing cert' in log_text
+    assert "Renewing cert" in log_text
 
-    certobj = cert.Certificate.get('Common', 'get_new_cert_Pebble')
-    assert certobj.status == 'To be installed'
+    certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
+    assert certobj.status == "To be installed"
+
 
 def install_cert():
     # We set the not before before to 10 days in the past. That should mark if for installation
-    certobj = cert.Certificate.get('Common', 'get_new_cert_Pebble')
+    certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
     new_expr_date = datetime.datetime.today().utcnow() - datetime.timedelta(days=10)
-    certobj.not_before= new_expr_date.replace(microsecond=0).isoformat()
+    certobj.not_before = new_expr_date.replace(microsecond=0).isoformat()
     certobj.save()
 
-    cmd = subprocess.Popen(['bigacme', 'renew'], stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
+    cmd = subprocess.Popen(
+        ["bigacme", "renew"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     cmd.communicate(timeout=300)
     assert cmd.returncode == 0
-    with open('log.log', 'r') as open_log:
+    with open("log.log", "r") as open_log:
         log_text = open_log.read()
-    assert 'Installing cert' in log_text
+    assert "Installing cert" in log_text
 
-    certobj = cert.Certificate.get('Common', 'get_new_cert_Pebble')
-    assert certobj.status == 'Installed'
+    certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
+    assert certobj.status == "Installed"
