@@ -69,7 +69,7 @@ class LoadBalancer:
     def send_challenge(self, domain, path, string):
         """Sends the challenge to the Big-IP"""
         shortpath = path.split("/")[-1]
-        key = "%s:%s" % (domain, shortpath)
+        key = f"{domain}:{shortpath}"
         logger.debug(
             "Adding record %s with value %s to datagroup %s in partition %s",
             key,
@@ -77,17 +77,16 @@ class LoadBalancer:
             self.datagroup,
             self.partition,
         )
-        self.bigip.System.Session.set_active_folder("/%s" % self.partition)
+        self.bigip.System.Session.set_active_folder(f"/{self.partition}")
         datagroup = self.bigip.LocalLB.Class
         class_members = [{"name": self.datagroup, "members": [key]}]
         try:
             datagroup.add_string_class_member(class_members)
         except bigsuds.ServerError as error:
             if (
-                "The requested class string item (/%s/%s %s) already exists in partition"
-                % (self.partition, self.datagroup, key)
-                in error.fault.faultstring
-            ):
+                f"The requested class string item (/{self.partition}/{self.datagroup}"
+                f" {key}) already exists in partition"
+            ) in error.fault.faultstring:
                 logger.debug(
                     "The record already exist. Deleting it before adding it again"
                 )
@@ -100,14 +99,14 @@ class LoadBalancer:
     def remove_challenge(self, domain, path):
         """Removes the challenge from the Big-IP"""
         shortpath = path.split("/")[-1]
-        key = "%s:%s" % (domain, shortpath)
+        key = f"{domain}:{shortpath}"
         logger.debug(
             "Removing record %s from datagroup %s in partition %s",
             key,
             self.datagroup,
             self.partition,
         )
-        self.bigip.System.Session.set_active_folder("/%s" % self.partition)
+        self.bigip.System.Session.set_active_folder(f"/{self.partition}")
         datagroup = self.bigip.LocalLB.Class
         class_members = [{"name": self.datagroup, "members": [key]}]
         datagroup.delete_string_class_member(class_members)
@@ -115,7 +114,7 @@ class LoadBalancer:
     def get_csr(self, partition, csrname):
         """Downloads the specified csr"""
         try:
-            self.bigip.System.Session.set_active_folder("/%s" % partition)
+            self.bigip.System.Session.set_active_folder(f"/{partition}")
         except bigsuds.ServerError as error:
             if "folder not found" in error.fault.faultstring:
                 raise PartitionNotFoundError()
@@ -141,7 +140,7 @@ class LoadBalancer:
     def upload_certificate(self, partition, name, certificates, overwrite=True):
         """Uploads a new certificate to the Big-IP"""
         try:
-            self.bigip.System.Session.set_active_folder("/%s" % partition)
+            self.bigip.System.Session.set_active_folder(f"/{partition}")
         except bigsuds.ServerError as error:
             if "folder not found" in error.fault.faultstring:
                 raise PartitionNotFoundError()
