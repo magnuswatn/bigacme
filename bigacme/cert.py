@@ -49,7 +49,7 @@ def _get_cert_dates(pem_cert):
     cert = x509.load_pem_x509_certificate(pem_cert.encode(), default_backend())
     logger.debug(
         "Certificate with serial %s, has not before: %s and not after: %s (UTC)",
-        cert.serial,
+        cert.serial_number,
         cert.not_valid_before,
         cert.not_valid_after,
     )
