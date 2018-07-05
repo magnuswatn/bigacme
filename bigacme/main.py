@@ -96,6 +96,10 @@ def main():
         if not config.check_configfiles():
             sys.exit("Could not find the configuration files in the specified folder")
 
+        if args.operation not in ["register", "test"]:
+            if not config.check_account_file():
+                sys.exit("Could not find an account. You must register with the CA.")
+
         logging.config.fileConfig(
             config.LOG_CONFIG_FILE, disable_existing_loggers=False
         )

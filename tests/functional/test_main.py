@@ -43,6 +43,17 @@ def working_dir(func):
     return tempdir_wrapper
 
 
+def existing_account(func):
+    """Creates an dummy account file, to fool the "you must register first" check"""
+
+    def account_wrapper():
+        with open(config.ACCOUNT_FILE, "w") as open_file:
+            open_file.write("dummy account file")
+        func()
+
+    return account_wrapper
+
+
 def use_pebble(func):
     """Creates an config with pebble as the CA, and returns the pebble process"""
 
@@ -148,6 +159,7 @@ def test_config():
 
 
 @working_dir
+@existing_account
 def test_remove_nonexisting_cert():
     """We should give the user feedback if removing of a cert failed"""
     cmd = subprocess.Popen(
@@ -182,6 +194,37 @@ def test_recreate_config_with_debug():
     with open("./config/logging.ini") as log_config_file:
         log_config = log_config_file.read()
     assert "DEBUG" in log_config
+
+
+@working_dir
+def test_get_cert_without_account():
+    """requsting a new cert without an account should fail gracefully"""
+    cmd = subprocess.Popen(
+        ["bigacme", "new", "Common", "test"],
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert "must register" in cmd.communicate()[1].decode()
+
+
+@working_dir
+def test_renew_without_account():
+    """renewing without an account should fail gracefully"""
+    cmd = subprocess.Popen(
+        ["bigacme", "renew"], stdin=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    assert "must register" in cmd.communicate()[1].decode()
+
+
+@working_dir
+def test_revoke_without_account():
+    """revoking a cert without an account should fail gracefully"""
+    cmd = subprocess.Popen(
+        ["bigacme", "revoke", "Common", "test"],
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert "must register" in cmd.communicate()[1].decode()
 
 
 def test_blank():
@@ -239,6 +282,16 @@ def test_register_wrong_email(pebble):
 def test_revoke_abort(pebble):
     """If user regrets, we should abort"""
     cert.Certificate("Common", "cert").save()
+
+    # we must register first
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    cmd.communicate(input=b"yes\nyes\nemail@example.com\nyes\n")
+
     cmd = subprocess.Popen(
         ["bigacme", "revoke", "Common", "cert"],
         stdin=subprocess.PIPE,
@@ -251,6 +304,7 @@ def test_revoke_abort(pebble):
 
 
 @working_dir
+@existing_account
 def test_incomplete_config_files():
     """
     The CLI should fail if the config files are not complete

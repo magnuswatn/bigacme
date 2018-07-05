@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 CONFIG_FILE = "config/config.ini"
 LOG_CONFIG_FILE = "config/logging.ini"
+ACCOUNT_FILE = "config/account.json"
 CONFIG_DIRS = ["config", "cert", "cert/backup"]
 
 
@@ -24,6 +25,11 @@ def check_configfiles():
         and os.path.isfile(CONFIG_FILE)
         and os.path.isfile(LOG_CONFIG_FILE)
     )
+
+
+def check_account_file():
+    """Checks whether the account file exists in the config folder"""
+    return os.path.isfile(ACCOUNT_FILE)
 
 
 def read_configfile():
