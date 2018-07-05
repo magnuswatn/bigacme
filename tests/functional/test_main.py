@@ -360,6 +360,48 @@ def test_test_sucessfull(pebble):
 
 
 @use_pebble
+def test_new_cert_from_nonexistent_partition(pebble):
+    # we must register first
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    cmd.communicate(input=b"yes\nyes\nemail@example.com\nyes\n")
+
+    cmd = subprocess.Popen(
+        ["bigacme", "new", "Cmmon", "testulf"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate()
+    assert "The specified partition does not seem to exist" in output[1].decode()
+
+
+@use_pebble
+def test_new_cert_from_nonexistent_csr(pebble):
+    # we must register first
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    cmd.communicate(input=b"yes\nyes\nemail@example.com\nyes\n")
+
+    cmd = subprocess.Popen(
+        ["bigacme", "new", "Common", "notACert"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate()
+    assert "Could not find the csr" in output[1].decode()
+
+
+@use_pebble
 def test_test_lb_fail(pebble):
     # Change the bigip host to localhost
     for line in fileinput.input("./config/config.ini", inplace=True):
