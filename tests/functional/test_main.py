@@ -388,6 +388,7 @@ def test_issuance_flow(pebble):
     Here we test the whole issuance flow -> issuance, renewal and revoking
     """
     register()
+    register_again()
     get_new_cert()
     get_new_cert_that_fails()
     renew_cert()
@@ -406,6 +407,17 @@ def register():
     cmd.communicate(input=b"yes\nyes\nemail@example.com\nyes\n")
     assert cmd.returncode == 0
     assert os.path.isfile("config/account.json")
+
+def register_again():
+    """The user should immediately get an error if an account already exists"""
+    cmd = subprocess.Popen(
+        ["bigacme", "register"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate()
+    assert "Account config already exists" in output[1].decode()
 
 
 def get_new_cert():
