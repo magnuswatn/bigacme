@@ -346,6 +346,7 @@ def test_issuance_flow(pebble):
     get_new_cert_that_fails()
     renew_cert()
     install_cert()
+    revoke_cert()
 
 
 def register():
@@ -432,3 +433,17 @@ def install_cert():
 
     certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
     assert certobj.status == "Installed"
+
+
+def revoke_cert():
+    cmd = subprocess.Popen(
+        ["bigacme", "revoke", "Common", "get_new_cert_Pebble"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate(input=b"REVOKE\n0\n")
+    assert cmd.returncode == 0
+    assert "revoked" in output[0].decode()
+    with pytest.raises(cert.CertificateNotFoundError):
+        cert.Certificate.get("Common", "get_new_cert_Pebble")
