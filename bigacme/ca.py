@@ -109,7 +109,7 @@ class CertificateAuthority:
         ) as open_file:
             open_file.write(account_json)
 
-    def register(self, mail):
+    def register(self, mail: str) -> None:
         """Registers an account with the ca"""
         self.create_account_key()
         # The user has already agreed to the tos in main.py
@@ -121,7 +121,7 @@ class CertificateAuthority:
         self.save_account()
         logger.info("Registered with the CA. Key ID: %s", self.kid)
 
-    def order_new_cert(self, csr):
+    def order_new_cert(self, csr: str) -> messages.OrderResource:
         """Orders a new certificate"""
         return self.client.new_order(csr)
 
@@ -137,13 +137,13 @@ class CertificateAuthority:
             logger.debug("Answering challenge for the domain: %s", challenge.domain)
             self.client.answer_challenge(challenge.challenge, challenge.response)
 
-    def revoke_certifciate(self, cert_pem, reason):
+    def revoke_certifciate(self, cert_pem: str, reason: int) -> None:
         """Revokes a certificate"""
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_pem)
         jose_cert = jose.util.ComparableX509(cert)
         self.client.revoke(jose_cert, reason)
 
-    def get_certificate_from_ca(self, order):
+    def get_certificate_from_ca(self, order: messages.OrderResource) -> str:
         """Sends the CSR to the CA and gets a signed certificate in return"""
         logger.debug("Getting the certificate from the CA")
         deadline = datetime.datetime.now() + datetime.timedelta(seconds=90)
@@ -202,7 +202,7 @@ def _return_desired_challenges(challenges, typ):
     return desired_challenges
 
 
-def _validate_cert_chain(pem_cert):
+def _validate_cert_chain(pem_cert: str) -> None:
     """Validates that the PEM chain only includes certificates"""
     for begin_string in re.findall(r"-----BEGIN [^-]*-----", pem_cert):
         if begin_string != "-----BEGIN CERTIFICATE-----":

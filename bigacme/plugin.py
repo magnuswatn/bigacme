@@ -67,7 +67,7 @@ class BigacmePlugin:
         :raises InvalidConfigError: If the configuration is not valid for the plugin.
         """
 
-    def perform(self, domain, validation_name, validation):
+    def perform(self, domain: str, validation_name: str, validation: str):
         """
         Here the plugin must add the specified DNS record.
 
@@ -87,7 +87,7 @@ class BigacmePlugin:
         :raises PluginError: If the performing fails.
         """
 
-    def cleanup(self, domain, validation_name, validation):
+    def cleanup(self, domain: str, validation_name: str, validation: str):
         """
         Here the plugin can clean up after performing.
         This will normally be to remove the added records.

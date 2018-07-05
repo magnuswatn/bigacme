@@ -66,7 +66,7 @@ class LoadBalancer:
             lb1.System.SystemInfo.get_uptime()
             self.bigip = lb1
 
-    def send_challenge(self, domain, path, string):
+    def send_challenge(self, domain: str, path: str, string: str) -> None:
         """Sends the challenge to the Big-IP"""
         shortpath = path.split("/")[-1]
         key = f"{domain}:{shortpath}"
@@ -96,7 +96,7 @@ class LoadBalancer:
                 raise
         datagroup.set_string_class_member_data_value(class_members, [[string]])
 
-    def remove_challenge(self, domain, path):
+    def remove_challenge(self, domain: str, path: str) -> None:
         """Removes the challenge from the Big-IP"""
         shortpath = path.split("/")[-1]
         key = f"{domain}:{shortpath}"
@@ -111,7 +111,7 @@ class LoadBalancer:
         class_members = [{"name": self.datagroup, "members": [key]}]
         datagroup.delete_string_class_member(class_members)
 
-    def get_csr(self, partition, csrname):
+    def get_csr(self, partition: str, csrname: str) -> str:
         """Downloads the specified csr"""
         try:
             self.bigip.System.Session.set_active_folder(f"/{partition}")
@@ -137,7 +137,7 @@ class LoadBalancer:
                 raise
         return pem_csr
 
-    def upload_certificate(self, partition, name, certificates, overwrite=True):
+    def upload_certificate(self, partition: str, name: str, certificates: str) -> None:
         """Uploads a new certificate to the Big-IP"""
         try:
             self.bigip.System.Session.set_active_folder(f"/{partition}")
@@ -150,7 +150,7 @@ class LoadBalancer:
                 raise
         try:
             self.bigip.Management.KeyCertificate.certificate_import_from_pem(
-                "MANAGEMENT_MODE_DEFAULT", [name], [certificates], overwrite
+                "MANAGEMENT_MODE_DEFAULT", [name], [certificates], True
             )
         except bigsuds.ServerError as error:
             if "Access Denied:" in error.fault.faultstring:
