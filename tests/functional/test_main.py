@@ -227,6 +227,18 @@ def test_revoke_without_account():
     assert "must register" in cmd.communicate()[1].decode()
 
 
+@working_dir
+@existing_account
+def test_revoke_nonexistent_cert():
+    """The user should immediately get an error if the cert does not exist"""
+    cmd = subprocess.Popen(
+        ["bigacme", "revoke", "Common", "notACert"],
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert "The specified certificate was not found" in cmd.communicate()[1].decode()
+
+
 def test_blank():
     """With no arguments some usage info should be printed"""
     cmd = subprocess.Popen(["bigacme"], stderr=subprocess.PIPE)
@@ -407,6 +419,7 @@ def register():
     cmd.communicate(input=b"yes\nyes\nemail@example.com\nyes\n")
     assert cmd.returncode == 0
     assert os.path.isfile("config/account.json")
+
 
 def register_again():
     """The user should immediately get an error if an account already exists"""
