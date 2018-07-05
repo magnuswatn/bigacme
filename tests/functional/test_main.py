@@ -385,9 +385,7 @@ def test_test_ca_fail(pebble):
 @use_pebble
 def test_issuance_flow(pebble):
     """
-    Here we test the whole issuance flow from start, to renewal
-
-    (revocation is not supported by Pebble atm)
+    Here we test the whole issuance flow -> issuance, renewal and revoking
     """
     register()
     get_new_cert()
