@@ -335,6 +335,54 @@ def test_register_fails(pebble):
 
 
 @use_pebble
+def test_test_sucessfull(pebble):
+    cmd = subprocess.Popen(
+        ["bigacme", "test"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate()
+    assert "was successfull" in output[0].decode()
+    assert cmd.returncode == 0
+
+
+@use_pebble
+def test_test_lb_fail(pebble):
+    # Change the bigip host to localhost
+    for line in fileinput.input("./config/config.ini", inplace=True):
+        mod1 = re.sub("host 1 = .*", f"host 1 = localhost", line)
+        sys.stdout.write(mod1)
+
+    cmd = subprocess.Popen(
+        ["bigacme", "test"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate()
+    assert "Could not connect to the load balancer" in output[0].decode()
+
+
+@use_pebble
+def test_test_ca_fail(pebble):
+    # Change the directory
+    for line in fileinput.input("./config/config.ini", inplace=True):
+        mod1 = re.sub(
+            "directory .*", r"directory url = https://localhost:14001/dir", line
+        )
+        sys.stdout.write(mod1)
+    cmd = subprocess.Popen(
+        ["bigacme", "test"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output = cmd.communicate()
+    assert "Could not connect to the CA" in output[0].decode()
+
+
+@use_pebble
 def test_issuance_flow(pebble):
     """
     Here we test the whole issuance flow from start, to renewal
