@@ -55,12 +55,24 @@ class LoadBalancer:
         if config.lb2:
             lb2 = bigsuds.BIGIP(config.lb2, config.lb_user, config.lb_pwd, verify=True)
 
-            if lb1.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
-                self.bigip = lb1
-            elif lb2.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
-                self.bigip = lb2
-            else:
-                raise NoActiveLoadBalancersError("None of the devices were active.")
+            try:
+                if lb1.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
+                    self.bigip = lb1
+                    return
+            except bigsuds.OperationFailed:
+                logger.exception("Could not get failover status from %s", config.lb1)
+
+            try:
+                if lb2.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
+                    self.bigip = lb2
+                    return
+            except bigsuds.OperationFailed:
+                logger.exception("Could not get failover status from %s", config.lb2)
+
+            raise NoActiveLoadBalancersError(
+                "None of the available devices were active."
+            )
+
         else:
             # Just to check the connection
             lb1.System.SystemInfo.get_uptime()
