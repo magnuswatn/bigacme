@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+"e1839a8" = {path = ".", editable = true}
+
+[dev-packages]
+pylint = "*"
+"f5-sdk" = "*"
+pytest = "*"
+pytest-cov = "*"
+black = "*"
+mypy = "*"
+
+[requires]
+python_version = "3.6"
+
+[pipenv]
+allow_prereleases = true
+
+[scripts]
+tests = "bash -c 'py.test --lb $LB --pass $PASS'"
+unittests = "bash -c 'py.test --lb $LB --pass $PASS ./tests/unit'"
+functests = "bash -c 'py.test --lb $LB --pass $PASS ./tests/functional'"

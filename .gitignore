@@ -99,3 +99,6 @@ testmiljo*/
 
 # Pytest
 .pytest_cache/
+
+# mypy
+.mypy_cache/
