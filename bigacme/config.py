@@ -91,7 +91,7 @@ def create_configfile():
     """Creates a default configfile"""
     config = configparser.ConfigParser()
     config.add_section("Common")
-    config.set("Common", "renewal days", "20")
+    config.set("Common", "renewal days", "40")
     config.set("Common", "delayed installation days", "5")
     config.set("Common", "account config", "./config/account.json")
     config.add_section("Load Balancer")
