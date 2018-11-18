@@ -94,7 +94,7 @@ def pebble():
         stdout=subprocess.PIPE,
     )
 
-    while b"Pebble running" not in pebble_proc.stdout.readline():
+    while b"Root CA certificate available at" not in pebble_proc.stdout.readline():
         pebble_proc.poll()
         if pebble_proc.returncode is not None:
             raise Exception("Pebble failed to start")
