@@ -244,6 +244,37 @@ def test_blank():
     cmd = subprocess.Popen(["bigacme"], stderr=subprocess.PIPE)
     assert "usage" in cmd.communicate()[1].decode()
 
+@working_dir
+@existing_account
+def test_list_no_certs():
+    cmd = subprocess.Popen(["bigacme", "list"], stdout=subprocess.PIPE)
+    assert "No certificates found" in cmd.communicate()[0].decode()
+
+@working_dir
+@existing_account
+def test_list_all_certs():
+    cert.Certificate("Common", "cert1").save()
+    cert.Certificate("Common", "cert2").save()
+    cert.Certificate("Common", "cert3").save()
+    cert.Certificate("Partition1", "cert").save()
+    cert.Certificate("Partition2", "cert").save()
+    cmd = subprocess.Popen(["bigacme", "list"], stdout=subprocess.PIPE)
+    output = cmd.communicate()[0].decode()
+    # five certs plus headers and separators is ten
+    assert len(output.split('\n')) == 10
+
+@working_dir
+@existing_account
+def test_list_specific_partition():
+    cert.Certificate("Common", "cert1").save()
+    cert.Certificate("Common", "cert2").save()
+    cert.Certificate("Common", "cert3").save()
+    cert.Certificate("Partition1", "cert").save()
+    cert.Certificate("Partition2", "cert").save()
+    cmd = subprocess.Popen(["bigacme", "list", "Partition1"], stdout=subprocess.PIPE)
+    output = cmd.communicate()[0].decode()
+    # one certs plus headers and separators is six
+    assert len(output.split('\n')) == 6
 
 @use_pebble
 def test_register_abort(pebble):

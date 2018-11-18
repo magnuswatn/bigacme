@@ -27,6 +27,20 @@ def get_certs_that_need_action(config):
     """Returns certificate that should be installed"""
     to_be_renewed = []
     to_be_installed = []
+    all_certs = get_all_certs()
+    for cert in all_certs:
+        if cert.about_to_expire(config.cm_renewal_days):
+            to_be_renewed.append(cert)
+        elif cert.status == "To be installed" and cert.old_enough(
+            config.cm_delayed_days
+        ):
+            to_be_installed.append(cert)
+    return to_be_renewed, to_be_installed
+
+
+def get_all_certs():
+    """Returns all the certificates that are up for renewal"""
+    certs = []
     for filename in os.listdir("./cert"):
         fullpath = "./cert/%s" % filename
         if os.path.isfile(fullpath):
@@ -35,13 +49,8 @@ def get_certs_that_need_action(config):
             except ValueError:
                 logger.warning("Could not load %s", fullpath)
                 continue
-            if cert.about_to_expire(config.cm_renewal_days):
-                to_be_renewed.append(cert)
-            elif cert.status == "To be installed" and cert.old_enough(
-                config.cm_delayed_days
-            ):
-                to_be_installed.append(cert)
-    return to_be_renewed, to_be_installed
+            certs.append(cert)
+    return certs
 
 
 def _get_cert_dates(pem_cert):

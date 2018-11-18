@@ -3,6 +3,7 @@ import os
 import sys
 import errno
 import getpass
+import datetime
 import argparse
 import logging
 import logging.config
@@ -79,10 +80,18 @@ def main():
     )
     parser_config.set_defaults(func=new_config)
 
-    parser_config = subparsers.add_parser(
+    parser_list = subparsers.add_parser(
+        "list", help="list all the certificates that will be renewed"
+    )
+    parser_list.add_argument(
+        "partition", help="the name of partition on the Big-IP", nargs="?"
+    )
+    parser_list.set_defaults(func=list_certs)
+
+    parser_version = subparsers.add_parser(
         "version", help="show the version number and exit"
     )
-    parser_config.set_defaults(func=print_version)
+    parser_version.set_defaults(func=print_version)
 
     args = parser.parse_args()
     try:
@@ -412,6 +421,49 @@ def new_config(args, configuration):
         print("The logging config file already exists. Not touching it")
 
     print("Done! Adjust the configuration files as needed")
+
+
+def list_certs(args, configuration):
+    """Lists all the certs that are going to be renewed"""
+    columns = ("Partition", "Name", "Validation method", "Status")
+    all_certs = cert.get_all_certs()
+    relevant_certs = []
+    for certificate in all_certs:
+        if args.partition and args.partition != certificate.partition:
+            continue
+        relevant_certs.append(
+            (
+                certificate.partition,
+                certificate.name,
+                certificate.validation_method,
+                certificate.status,
+            )
+        )
+    relevant_certs.sort()
+    if relevant_certs:
+        _print_table(columns, relevant_certs)
+    else:
+        print("No certificates found")
+
+
+def _print_table(headers, values):
+    """Prints an OK (ish) ascii table"""
+    max_widths = [len(str(x)) for x in headers]
+    for value in values:
+        max_widths = [max(x, len(str(y))) for x, y in zip(max_widths, value)]
+
+    header = [str(c).ljust(w) for w, c in zip(max_widths, headers)]
+    separator = ["-" * x for x in max_widths]
+
+    print("+ {} +".format(" + ".join(list(separator))))
+    print("| {} |".format(" | ".join(list(header))))
+    print("+ {} +".format(" + ".join(list(separator))))
+
+    for value in values:
+        cols = [str(c).ljust(w) for w, c in zip(max_widths, value)]
+        print("| {} |".format(" | ".join(list(cols))))
+
+    print("+ {} +".format(" + ".join(list(separator))))
 
 
 def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
