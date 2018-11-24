@@ -118,7 +118,7 @@ def test__init__with_none_active(mock_bigsuds):
         lb_dg="datagroup",
         lb_dg_partition="Partition",
     )
-    with pytest.raises(bigacme.lb.NoActiveLoadBalancersError):
+    with pytest.raises(bigacme.lb.CouldNotConnectToBalancerError):
         bigacme.lb.LoadBalancer(config)
 
 

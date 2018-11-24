@@ -24,6 +24,12 @@ class CAError(Exception):
     pass
 
 
+class CouldNotRetrieveDirectoryFromCA(CAError):
+    """Could not retrieve the direcotry from the CA"""
+
+    pass
+
+
 class NoDesiredChallenge(CAError):
     """Raised when the CA did not provides the desired challenge for the domain"""
 
@@ -74,7 +80,14 @@ class CertificateAuthority:
         )
 
         network.session.proxies = {"https": configuration.ca_proxy}
-        directory = messages.Directory.from_json(network.get(configuration.ca).json())
+
+        try:
+            directory = messages.Directory.from_json(
+                network.get(configuration.ca).json()
+            )
+        except ValueError as error:
+            raise CouldNotRetrieveDirectoryFromCA(error)
+
         self.client = client.ClientV2(directory, network)
 
     def load_account(self):

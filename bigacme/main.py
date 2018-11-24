@@ -333,15 +333,16 @@ def test(args, configuration):
     """Tests the connections to the load balancer and the ca"""
     try:
         lb.LoadBalancer(configuration)
-    except:  # pylint: disable=W0702
-        print("Could not connect to the load balancer. Check the log.")
+    except lb.LoadBalancerError as error:
+        print(f"Could not connect to the load balancer: {error}")
         logger.exception("Could not connect to the load balancer:")
     else:
         print("The connection to the load balancer was successfull")
+
     try:
         ca.CertificateAuthority(configuration)
-    except:  # pylint: disable=W0702
-        print("Could not connect to the CA. Check the log.")
+    except ca.CAError as error:
+        print(f"Could not connect to the CA: {error}")
         logger.exception("Could not connect to the CA:")
     else:
         print("The connection to the CA was successfull")

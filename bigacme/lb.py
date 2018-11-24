@@ -14,8 +14,8 @@ class LoadBalancerError(Exception):
     pass
 
 
-class NoActiveLoadBalancersError(LoadBalancerError):
-    """Raised when none of the specified load balancers reports as active"""
+class CouldNotConnectToBalancerError(LoadBalancerError):
+    """Raised when a connection to the (active) load balancer could not be made"""
 
     pass
 
@@ -39,7 +39,7 @@ class AccessDeniedError(LoadBalancerError):
 
 
 class NotFoundError(LoadBalancerError):
-    """Raised when the specified resource was not found on the load balander"""
+    """Raised when the specified resource was not found on the load balancer"""
 
     pass
 
@@ -69,13 +69,17 @@ class LoadBalancer:
             except bigsuds.OperationFailed:
                 logger.exception("Could not get failover status from %s", config.lb2)
 
-            raise NoActiveLoadBalancersError(
-                "None of the available devices were active."
+            raise CouldNotConnectToBalancerError(
+                "None of the available devices were active. "
+                "See the log for more details."
             )
 
         else:
             # Just to check the connection
-            lb1.System.SystemInfo.get_uptime()
+            try:
+                lb1.System.SystemInfo.get_uptime()
+            except bigsuds.OperationFailed as error:
+                raise CouldNotConnectToBalancerError(error)
             self.bigip = lb1
 
     def send_challenge(self, domain: str, path: str, string: str) -> None:
