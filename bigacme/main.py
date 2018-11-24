@@ -155,7 +155,7 @@ def new_cert(args, configuration):
             )
 
         except plugin.InvalidConfigError as error:
-            logger.exception("Failed to initialize plugin. Error was: %s", error)
+            logger.exception("Failed to initialize plugin:")
             sys.exit(f"Failed to initialize plugin. Error was: {error}")
 
         chall_typ = "dns-01"
