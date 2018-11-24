@@ -46,8 +46,8 @@ def get_all_certs():
         if os.path.isfile(fullpath):
             try:
                 cert = Certificate.load(fullpath)
-            except ValueError:
-                logger.warning("Could not load %s", fullpath)
+            except ValueError as error:
+                logger.warning("Could not load '%s': %s", fullpath, error)
                 continue
             certs.append(cert)
     return certs
