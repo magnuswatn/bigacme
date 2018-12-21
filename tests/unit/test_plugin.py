@@ -52,7 +52,9 @@ def test_load_plugin():
         plugin = bigacme.plugin.get_plugin(_generate_dummy_config())
 
         assert plugin.kwargs == {"hei": "sann", "hade": "bra"}
-        mock_logger.debug.assert_called_once_with("Using plugin %s", "A correct plugin")
+        mock_logger.debug.assert_called_once_with(
+            "Using plugin '%s'", "A correct plugin"
+        )
 
 
 def test_load_plugin_wrong_type():
