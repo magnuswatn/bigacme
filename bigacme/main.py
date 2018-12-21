@@ -2,6 +2,7 @@
 import os
 import sys
 import errno
+import string
 import getpass
 import datetime
 import argparse
@@ -38,8 +39,14 @@ def main():
     subparsers.required = True
 
     parser_new = subparsers.add_parser("new", help="request a new certificate")
-    parser_new.add_argument("partition", help="the name of partition on the Big-IP")
-    parser_new.add_argument("csrname", help="the name of the csr on the Big-IP")
+    parser_new.add_argument(
+        "partition",
+        help="the name of partition on the Big-IP",
+        type=_validate_bigip_name,
+    )
+    parser_new.add_argument(
+        "csrname", help="the name of the csr on the Big-IP", type=_validate_bigip_name
+    )
     parser_new.add_argument(
         "-dns", help="Use DNS validation instead of HTTP", action="store_true"
     )
@@ -48,13 +55,25 @@ def main():
     parser_remove = subparsers.add_parser(
         "remove", help="remove a certificate, so that it won't be renewd"
     )
-    parser_remove.add_argument("partition", help="the name of partition on the Big-IP")
-    parser_remove.add_argument("csrname", help="the name of the csr on the Big-IP")
+    parser_remove.add_argument(
+        "partition",
+        help="the name of partition on the Big-IP",
+        type=_validate_bigip_name,
+    )
+    parser_remove.add_argument(
+        "csrname", help="the name of the csr on the Big-IP", type=_validate_bigip_name
+    )
     parser_remove.set_defaults(func=remove)
 
     parser_revoke = subparsers.add_parser("revoke", help="revoke a certificate")
-    parser_revoke.add_argument("partition", help="the name of partition on the Big-IP")
-    parser_revoke.add_argument("csrname", help="the name of the csr on the Big-IP")
+    parser_revoke.add_argument(
+        "partition",
+        help="the name of partition on the Big-IP",
+        type=_validate_bigip_name,
+    )
+    parser_revoke.add_argument(
+        "csrname", help="the name of the csr on the Big-IP", type=_validate_bigip_name
+    )
     parser_revoke.set_defaults(func=revoke)
 
     parser_renew = subparsers.add_parser("renew", help="renew existing certificates")
@@ -507,3 +526,18 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
             dns_plugin.finish_cleanup()
 
     return certificate
+
+
+def _validate_bigip_name(name):
+    """
+    Big-IP is kinda picky about names. Names with special characters
+    will (mostly) get rejected, and some (slashes) will lead to unexpected
+    results (path traversal). Best not to accept names like that.
+    """
+
+    allowed_characters = string.ascii_letters + string.digits + "_-"
+
+    for char in name:
+        if char not in allowed_characters:
+            raise argparse.ArgumentTypeError("The requested object name is invalid")
+    return name

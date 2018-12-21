@@ -108,6 +108,22 @@ def test_version():
     assert output == version.__version__
 
 
+def test_invalid_names():
+    """Invalid partition and csr name should be rejected"""
+    commands = ["new", "remove", "revoke"]
+    for command in commands:
+        cmd = subprocess.Popen(
+            ["bigacme", command, "møøø/\\/", "normal"], stderr=subprocess.PIPE
+        )
+        assert "The requested object name is invalid" in cmd.communicate()[1].decode()
+        assert cmd.returncode == 2
+        cmd = subprocess.Popen(
+            ["bigacme", command, "normal", "+++//æø"], stderr=subprocess.PIPE
+        )
+        assert "The requested object name is invalid" in cmd.communicate()[1].decode()
+        assert cmd.returncode == 2
+
+
 def test_nonexisting_config_folder():
     """The cli should fail if you point it at a nonexisting config folder"""
     cmd = subprocess.Popen(
