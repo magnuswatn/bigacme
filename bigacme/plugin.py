@@ -47,7 +47,7 @@ def get_plugin(configuration):
         if not issubclass(plugin, BigacmePlugin):
             raise PluginError("Plugin is not a valid bigacme plugin")
 
-        logger.debug("Using plugin %s", plugin.name)
+        logger.debug("Using plugin '%s'", plugin.name)
 
         return plugin(**plugin_config)
 

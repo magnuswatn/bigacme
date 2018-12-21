@@ -135,7 +135,7 @@ def main():
 def new_cert(args, configuration):
     """Fetches the specified CSR from the device and retrieves a certificate from the CA"""
     logger.info(
-        "User %s started issuance of cert %s in partition %s",
+        "User '%s' started issuance of cert '%s' in partition '%s'",
         getpass.getuser(),
         args.csrname,
         args.partition,
@@ -169,7 +169,7 @@ def new_cert(args, configuration):
         with click_spinner.spinner():
             csr = bigip.get_csr(args.partition, args.csrname)
     except lb.PartitionNotFoundError:
-        logger.error("The partition was not found on the device")
+        logger.info("The partition '%s' was not found on the device", args.partition)
         sys.exit("The specified partition does not seem to exist.")
     except lb.AccessDeniedError:
         logger.error("The user was denied access by the load balancer")
@@ -178,7 +178,7 @@ def new_cert(args, configuration):
             "Do the user have the Certificate Manager role in the specified partition?"
         )
     except lb.NotFoundError:
-        logger.error("The CSR was not found on the device")
+        logger.info("The CSR '%s' was not found on the device", args.csrname)
         sys.exit("Could not find the csr on the big-ip. Check the spelling.")
 
     certobj = cert.Certificate.new(args.partition, args.csrname, csr, chall_typ)
@@ -223,7 +223,7 @@ def renew(args, configuration):
     dns_plugin = None
     for renewal in renewals:
         logger.info(
-            "Renewing cert: %s from partition: %s using %s",
+            "Renewing cert: '%s' from partition: '%s' using '%s'",
             renewal.name,
             renewal.partition,
             renewal.validation_method,
@@ -234,7 +234,7 @@ def renew(args, configuration):
                 dns_plugin = plugin.get_plugin(configuration)
             except plugin.PluginError:
                 logger.exception(
-                    "Could not load plugin to renew certificate %s in partition %s:",
+                    "Could not load plugin to renew certificate '%s' in partition '%s':",
                     renewal.name,
                     renewal.partition,
                 )
@@ -244,7 +244,7 @@ def renew(args, configuration):
             certificate = _get_new_cert(acme_ca, bigip, renewal, dns_plugin)
         except (ca.GetCertificateFailedError, lb.LoadBalancerError, plugin.PluginError):
             logger.exception(
-                "Could not renew certificate %s in partition %s:",
+                "Could not renew certificate '%s' in partition '%s':",
                 renewal.name,
                 renewal.partition,
             )
@@ -253,13 +253,15 @@ def renew(args, configuration):
 
     for tbi_cert in certs_to_be_installed:
         logger.info(
-            "Installing cert: %s in partition: %s", tbi_cert.name, tbi_cert.partition
+            "Installing cert: '%s' in partition: '%s'",
+            tbi_cert.name,
+            tbi_cert.partition,
         )
         try:
             bigip.upload_certificate(tbi_cert.partition, tbi_cert.name, tbi_cert.cert)
         except lb.LoadBalancerError:
             logger.exception(
-                "Could not install certificate %s in partition %s:",
+                "Could not install certificate '%s' in partition '%s':",
                 tbi_cert.name,
                 tbi_cert.partition,
             )
@@ -277,12 +279,12 @@ def remove(args, configuration):
     except cert.CertificateNotFoundError:
         sys.exit("The specified certificate was not found")
     logger.info(
-        "User %s removed cert %s in partition %s",
+        "User '%s' removed cert '%s' in partition '%s'",
         getpass.getuser(),
         args.csrname,
         args.partition,
     )
-    print(f"Certificate {args.csrname} in partition {args.partition} removed")
+    print(f"Certificate '{args.csrname}' in partition '{args.partition}' removed")
 
 
 def revoke(args, configuration):
@@ -321,12 +323,12 @@ def revoke(args, configuration):
     acme_ca.revoke_certifciate(certificate.cert, reason)
     certificate.delete()
     logger.info(
-        "User %s revoked cert %s in partition %s",
+        "User '%s' revoked cert '%s' in partition '%s'",
         getpass.getuser(),
         args.csrname,
         args.partition,
     )
-    print(f"Certificate {args.csrname} in partition {args.partition} revoked")
+    print(f"Certificate '{args.csrname}' in partition '{args.partition}' revoked")
 
 
 def test(args, configuration):
@@ -377,7 +379,7 @@ def register(args, configuration):
     print("What mail address do you want to register with the account?")
     mail = input().lower()
 
-    print(f"You typed in {mail}, is this correct? yes or no.")
+    print(f"You typed in '{mail}', is this correct? yes or no.")
     choice3 = input().lower()
     if choice3 not in ["y", "ya", "yes", "yass"]:
         sys.exit("Wrong mail. Exiting")
@@ -407,7 +409,7 @@ def new_config(args, configuration):
             os.makedirs(folder)
         except OSError as error:
             if error.errno == errno.EEXIST and os.path.isdir(folder):
-                print(f"The folder {folder} already exists.")
+                print(f"The folder '{folder}' already exists.")
             else:
                 raise
 
@@ -485,7 +487,7 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
         dns_plugin.finish_perform()
     else:
         raise ca.UnknownValidationType(
-            f"Validation type {csr.validation_method} is not recognized"
+            f"Validation type '{csr.validation_method}' is not recognized"
         )
 
     acme_ca.answer_challenges(challenges)

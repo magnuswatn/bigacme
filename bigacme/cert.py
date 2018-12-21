@@ -57,7 +57,7 @@ def _get_cert_dates(pem_cert):
     """Returns the dates in the cert"""
     cert = x509.load_pem_x509_certificate(pem_cert.encode(), default_backend())
     logger.debug(
-        "Certificate with serial %s, has not before: %s and not after: %s (UTC)",
+        "Certificate with serial '%s', has not before: '%s' and not after: '%s' (UTC)",
         cert.serial_number,
         cert.not_valid_before,
         cert.not_valid_after,
@@ -71,10 +71,10 @@ def _check_if_cert_about_to_expire(not_after_str, threshold):
     datelimit = datetime.datetime.today().utcnow() - datetime.timedelta(days=threshold)
     not_after = datetime.datetime.strptime(not_after_str, "%Y-%m-%dT%H:%M:%S")
     if not_after < datelimit:
-        logger.debug("%s is before %s, returning True", not_after, datelimit)
+        logger.debug("'%s' is before '%s', returning True", not_after, datelimit)
         return True
     else:
-        logger.debug("%s is after %s, returning False", not_after, datelimit)
+        logger.debug("'%s' is after '%s', returning False", not_after, datelimit)
         return False
 
 
@@ -87,12 +87,12 @@ def delete_expired_backups():
                 not_after_str, _ = _get_cert_dates(open_file.read())
         except ValueError as error:
             if str(error) == "Unable to load certificate":
-                logger.warning("Could not load %s as a certificate", filename)
+                logger.warning("Could not load '%s' as a certificate", filename)
                 continue
             else:
                 raise
         if _check_if_cert_about_to_expire(not_after_str, 0):
-            logger.debug("Deleting cert %s", fullpath)
+            logger.debug("Deleting cert '%s'", fullpath)
             os.remove(fullpath)
 
 
@@ -193,8 +193,8 @@ class Certificate:
         )
         not_before = datetime.datetime.strptime(self.not_before, "%Y-%m-%dT%H:%M:%S")
         if not_before < datelimit:
-            logger.debug("%s is before %s, returning True", not_before, datelimit)
+            logger.debug("'%s' is before '%s', returning True", not_before, datelimit)
             return True
         else:
-            logger.debug("%s is after %s, returning False", not_before, datelimit)
+            logger.debug("'%s' is after '%s', returning False", not_before, datelimit)
             return False

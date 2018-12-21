@@ -57,17 +57,19 @@ class LoadBalancer:
 
             try:
                 if lb1.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
+                    logger.debug("Using '%s' as active load balancer", config.lb1)
                     self.bigip = lb1
                     return
             except bigsuds.OperationFailed:
-                logger.exception("Could not get failover status from %s", config.lb1)
+                logger.exception("Could not get failover status from '%s'", config.lb1)
 
             try:
                 if lb2.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
+                    logger.debug("Using '%s' as active load balancer", config.lb2)
                     self.bigip = lb2
                     return
             except bigsuds.OperationFailed:
-                logger.exception("Could not get failover status from %s", config.lb2)
+                logger.exception("Could not get failover status from '%s'", config.lb2)
 
             raise CouldNotConnectToBalancerError(
                 "None of the available devices were active. "
@@ -87,7 +89,7 @@ class LoadBalancer:
         shortpath = path.split("/")[-1]
         key = f"{domain}:{shortpath}"
         logger.debug(
-            "Adding record %s with value %s to datagroup %s in partition %s",
+            "Adding record '%s' with value '%s' to datagroup '%s' in partition '%s'",
             key,
             string,
             self.datagroup,
@@ -99,6 +101,8 @@ class LoadBalancer:
         try:
             datagroup.add_string_class_member(class_members)
         except bigsuds.ServerError as error:
+            logger.debug("Received error from the load balancer: %s", error)
+
             if (
                 f"The requested class string item (/{self.partition}/{self.datagroup}"
                 f" {key}) already exists in partition"
@@ -117,7 +121,7 @@ class LoadBalancer:
         shortpath = path.split("/")[-1]
         key = f"{domain}:{shortpath}"
         logger.debug(
-            "Removing record %s from datagroup %s in partition %s",
+            "Removing record '%s' from datagroup '%s' in partition '%s'",
             key,
             self.datagroup,
             self.partition,
@@ -132,6 +136,8 @@ class LoadBalancer:
         try:
             self.bigip.System.Session.set_active_folder(f"/{partition}")
         except bigsuds.ServerError as error:
+            logger.debug("Received error from the load balancer: %s", error)
+
             if "folder not found" in error.fault.faultstring:
                 raise PartitionNotFoundError()
             elif "Access Denied:" in error.fault.faultstring:
@@ -145,6 +151,8 @@ class LoadBalancer:
                 0
             ]
         except bigsuds.ServerError as error:
+            logger.debug("Received error from the load balancer: %s", error)
+
             if "Access Denied:" in error.fault.faultstring:
                 raise AccessDeniedError()
             elif "Not Found" in error.fault.faultstring:
@@ -158,6 +166,8 @@ class LoadBalancer:
         try:
             self.bigip.System.Session.set_active_folder(f"/{partition}")
         except bigsuds.ServerError as error:
+            logger.debug("Received error from the load balancer: %s", error)
+
             if "folder not found" in error.fault.faultstring:
                 raise PartitionNotFoundError()
             elif "Access Denied:" in error.fault.faultstring:
@@ -169,6 +179,8 @@ class LoadBalancer:
                 "MANAGEMENT_MODE_DEFAULT", [name], [certificates], True
             )
         except bigsuds.ServerError as error:
+            logger.debug("Received error from the load balancer: %s", error)
+
             if "Access Denied:" in error.fault.faultstring:
                 raise AccessDeniedError()
             else:

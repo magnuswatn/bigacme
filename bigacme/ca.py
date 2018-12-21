@@ -132,7 +132,7 @@ class CertificateAuthority:
         regr = self.client.new_account(new_regr)
         self.kid = regr.uri
         self.save_account()
-        logger.info("Registered with the CA. Key ID: %s", self.kid)
+        logger.info("Registered with the CA. Key ID: '%s'", self.kid)
 
     def order_new_cert(self, csr: str) -> messages.OrderResource:
         """Orders a new certificate"""
@@ -147,7 +147,7 @@ class CertificateAuthority:
     def answer_challenges(self, challenges):
         """Tells the CA that the challenges has been solved"""
         for challenge in challenges:
-            logger.debug("Answering challenge for the domain: %s", challenge.domain)
+            logger.debug("Answering challenge for the domain: '%s'", challenge.domain)
             self.client.answer_challenge(challenge.challenge, challenge.response)
 
     def revoke_certifciate(self, cert_pem: str, reason: int) -> None:
