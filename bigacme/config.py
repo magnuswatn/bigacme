@@ -2,14 +2,15 @@
 import os
 import logging
 import configparser
+from pathlib import Path
 from collections import namedtuple
 
 logger = logging.getLogger(__name__)
 
-CONFIG_FILE = "config/config.ini"
-LOG_CONFIG_FILE = "config/logging.ini"
-ACCOUNT_FILE = "config/account.json"
-CONFIG_DIRS = ["config", "cert", "cert/backup"]
+CONFIG_FILE = Path("config", "config.ini")
+LOG_CONFIG_FILE = Path("config", "logging.ini")
+ACCOUNT_FILE = Path("config", "account.json")
+CONFIG_DIRS = [Path("config"), Path("cert"), Path("cert", "backup")]
 
 
 class ConfigError(Exception):
@@ -21,15 +22,15 @@ class ConfigError(Exception):
 def check_configfiles():
     """Checks that the configuration files and folders are in place"""
     return (
-        all(os.path.isdir(x) for x in CONFIG_DIRS)
-        and os.path.isfile(CONFIG_FILE)
-        and os.path.isfile(LOG_CONFIG_FILE)
+        all(x.is_dir() for x in CONFIG_DIRS)
+        and CONFIG_FILE.is_file()
+        and LOG_CONFIG_FILE.is_file()
     )
 
 
 def check_account_file():
     """Checks whether the account file exists in the config folder"""
-    return os.path.isfile(ACCOUNT_FILE)
+    return ACCOUNT_FILE.is_file()
 
 
 def read_configfile():
@@ -89,11 +90,14 @@ def read_configfile():
 
 def create_configfile():
     """Creates a default configfile"""
+
+    account_file_path = str(Path("config", "account.json").resolve())
+
     config = configparser.ConfigParser()
     config.add_section("Common")
     config.set("Common", "renewal days", "40")
     config.set("Common", "delayed installation days", "5")
-    config.set("Common", "account config", "./config/account.json")
+    config.set("Common", "account config", account_file_path)
     config.add_section("Load Balancer")
     config.set("Load Balancer", "cluster", "True")
     config.set("Load Balancer", "Host 1", "lb1.example.com")
@@ -111,10 +115,11 @@ def create_configfile():
     config.set("Certificate Authority", "use proxy", "False")
     config.set("Certificate Authority", "proxy", "http://proxy.example.com:8080")
 
-    # As the config file contains password, we should be careful with permissions
-    with os.fdopen(
-        os.open(CONFIG_FILE, os.O_WRONLY | os.O_CREAT, 0o660), "w"
-    ) as config_file:
+    # As the config file contains password,
+    # we must be careful with permissions.
+    CONFIG_FILE.touch(mode=0o660)
+
+    with CONFIG_FILE.open(mode="w") as config_file:
         config.write(config_file)
 
 
@@ -128,6 +133,9 @@ def create_logconfigfile(debug):
     Otherwise it will be flooded with suds logging
 
     """
+
+    log_file_path = str(Path("log.log").resolve())
+
     config = configparser.ConfigParser()
     config.add_section("loggers")
 
@@ -159,11 +167,11 @@ def create_logconfigfile(debug):
     else:
         config.set("handler_fileHandler", "level", "INFO")
     config.set("handler_fileHandler", "formatter", "fileFormatter")
-    config.set("handler_fileHandler", "args", "('./log.log', 'a')")
+    config.set("handler_fileHandler", "args", f"('{log_file_path}', 'a')")
     config.add_section("formatter_fileFormatter")
     config.set(
         "formatter_fileFormatter", "format", "%(asctime)s - %(levelname)s - %(message)s"
     )
 
-    with open(LOG_CONFIG_FILE, "w") as config_file:
+    with LOG_CONFIG_FILE.open(mode="w") as config_file:
         config.write(config_file)

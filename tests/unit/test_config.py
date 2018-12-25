@@ -50,7 +50,7 @@ def test_create_and_read_configfile():
     config = bigacme.config.read_configfile()
 
     # the host 2 option should not be used if Cluster = False
-    for line in fileinput.input(bigacme.config.CONFIG_FILE, inplace=True):
+    for line in fileinput.input(str(bigacme.config.CONFIG_FILE), inplace=True):
         sys.stdout.write(
             re.sub("cluster = (True|False)", "cluster = False", line).replace(
                 "host 2 = lb2.example.com", ""
@@ -60,13 +60,13 @@ def test_create_and_read_configfile():
     assert config.lb2 is None
 
     # If use proxy = True, the proxy address should be read
-    for line in fileinput.input(bigacme.config.CONFIG_FILE, inplace=True):
+    for line in fileinput.input(str(bigacme.config.CONFIG_FILE), inplace=True):
         sys.stdout.write(re.sub("use proxy = (True|False)", "use proxy = True", line))
     config = bigacme.config.read_configfile()
     assert config.ca_proxy == "http://proxy.example.com:8080"
 
     # The proxy address should not be used if use proxy = False
-    for line in fileinput.input(bigacme.config.CONFIG_FILE, inplace=True):
+    for line in fileinput.input(str(bigacme.config.CONFIG_FILE), inplace=True):
         sys.stdout.write(
             re.sub("use proxy = (True|False)", "use proxy = False", line).replace(
                 "proxy = http://proxy.example.com:8080", ""

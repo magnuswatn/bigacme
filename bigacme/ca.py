@@ -4,6 +4,7 @@ import re
 import json
 import logging
 import datetime
+from pathlib import Path
 from collections import namedtuple
 
 import josepy as jose
@@ -64,7 +65,7 @@ class CertificateAuthority:
     """Represent a Certificate Authority"""
 
     def __init__(self, configuration):
-        self.account_file = configuration.cm_account
+        self.account_file = Path(configuration.cm_account)
         user_agent = "bigacme (https://github.com/magnuswatn/bigacme/)"
 
         try:
@@ -92,9 +93,7 @@ class CertificateAuthority:
 
     def load_account(self):
         """Loads the account information (key and kid) from disk"""
-        with open(self.account_file, "r") as open_file:
-            account_json = open_file.read()
-        account_info = json.loads(account_json)
+        account_info = json.loads(self.account_file.read_text())
         self.kid = account_info["kid"]
         self.key = jose.JWKRSA.from_json(account_info["key"])
 
@@ -109,18 +108,16 @@ class CertificateAuthority:
 
     def save_account(self):
         """Saves the account key and id to the file specified in the config"""
-        if os.path.exists(self.account_file):
+        if self.account_file.exists():
             raise AccountInfoExistsError
 
         account_info = {"kid": self.kid, "key": self.key.to_json()}
         account_json = json.dumps(account_info, indent=4, sort_keys=True)
 
         # Saving private key to file - we must be careful with the permissions
-        file_name = self.account_file
-        with os.fdopen(
-            os.open(file_name, os.O_WRONLY | os.O_CREAT, 0o440), "w"
-        ) as open_file:
-            open_file.write(account_json)
+        self.account_file.touch(mode=0o640)
+        self.account_file.write_text(account_json)
+        self.account_file.chmod(0o440)
 
     def register(self, mail: str) -> None:
         """Registers an account with the ca"""

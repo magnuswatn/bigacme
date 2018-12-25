@@ -5,6 +5,8 @@ import json
 import logging
 import datetime
 
+from pathlib import Path
+
 from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 
@@ -41,13 +43,12 @@ def get_certs_that_need_action(config):
 def get_all_certs():
     """Returns all the certificates that are up for renewal"""
     certs = []
-    for filename in os.listdir("./cert"):
-        fullpath = "./cert/%s" % filename
-        if os.path.isfile(fullpath):
+    for path in Path("cert").iterdir():
+        if path.is_file():
             try:
-                cert = Certificate.load(fullpath)
+                cert = Certificate.load(path)
             except ValueError as error:
-                logger.warning("Could not load '%s': %s", fullpath, error)
+                logger.warning("Could not load '%s': %s", path.resolve(), error)
                 continue
             certs.append(cert)
     return certs
@@ -80,20 +81,19 @@ def _check_if_cert_about_to_expire(not_after_str, threshold):
 
 def delete_expired_backups():
     """Deletes expired certificates from the backup folder"""
-    for filename in os.listdir("./cert/backup"):
-        fullpath = "./cert/backup/%s" % filename
+    for path in Path("cert", "backup").iterdir():
         try:
-            with open(fullpath, "r") as open_file:
+            with path.open() as open_file:
                 not_after_str, _ = _get_cert_dates(open_file.read())
         except ValueError as error:
             if str(error) == "Unable to load certificate":
-                logger.warning("Could not load '%s' as a certificate", filename)
+                logger.warning("Could not load '%s' as a certificate", path.resolve())
                 continue
             else:
                 raise
         if _check_if_cert_about_to_expire(not_after_str, 0):
-            logger.debug("Deleting cert '%s'", fullpath)
-            os.remove(fullpath)
+            logger.debug("Deleting cert '%s'", path.resolve())
+            path.unlink()
 
 
 class Certificate:
@@ -107,10 +107,9 @@ class Certificate:
         self.validation_method = "http-01"
 
     @classmethod
-    def load(cls, fullpath):
+    def load(cls, path):
         """Load a certificate from a specified file"""
-        with open(fullpath, "r") as json_bytes:
-            loaded = json.loads(json_bytes.read())
+        loaded = json.loads(path.read_text())
         cert = cls(loaded["partition"], loaded["name"])
         for name, key in loaded.items():
             setattr(cert, name, key)
@@ -127,16 +126,14 @@ class Certificate:
     @classmethod
     def get(cls, partition, name):
         """Get an existing certificate from disk"""
-        if os.path.isfile("./cert/%s_%s.json" % (partition, name)):
-            path = os.path.realpath("./cert/%s_%s.json" % (partition, name))
+        path = Path("cert", f"{partition}_{name}.json")
+        if path.exists():
             return cls.load(path)
-        else:
-            raise CertificateNotFoundError
+        raise CertificateNotFoundError
 
     @property
     def path(self):
-        """The path to the json on disk"""
-        return "./cert/%s_%s.json" % (self.partition, self.name)
+        return Path("cert", f"{self.partition}_{self.name}.json")
 
     @property
     def cert(self):
@@ -150,17 +147,17 @@ class Certificate:
 
     def save(self):
         """Saves the cert object to disk"""
+        dumped_json = json.dumps(self.__dict__, indent=4, sort_keys=True)
+
         try:
-            with open(self.path, "w") as open_file:
-                open_file.write(json.dumps(self.__dict__, indent=4, sort_keys=True))
+            self.path.write_text(dumped_json)
         except IOError as error:
             if error.errno == 13:
                 # It may be owned by another user. Try to recreate it.
-                temp_name = str(uuid.uuid1())
-                os.rename(self.path, temp_name)
-                with open(self.path, "w") as open_file:
-                    open_file.write(json.dumps(self.__dict__, indent=4, sort_keys=True))
-                os.remove(temp_name)
+                temp_path = Path(str(uuid.uuid1()))
+                self.path.rename(temp_path)
+                self.path.write_text(dumped_json)
+                temp_path.unlink()
             else:
                 raise
 
@@ -169,18 +166,17 @@ class Certificate:
         self.status = "Installed"
         self.save()
 
-    def renew(self, cert):
+    def renew(self, new_cert):
         """Backups the cert, sets a new one with status 'To be installed'"""
-        backup_path = "./cert/backup/%s_%s.cer" % (self.partition, self.name)
-        with open(backup_path, "w") as open_file:
-            open_file.write(self.cert)
-        self.cert = cert
+        backup_path = Path("cert", "backup", f"{self.partition}_{self.name}.cer")
+        backup_path.write_text(self.cert)
+        self.cert = new_cert
         self.status = "To be installed"
         self.save()
 
     def delete(self):
         """Removes the certificate from disk"""
-        os.remove(self.path)
+        self.path.unlink()
 
     def about_to_expire(self, threshold):
         """Checks if the cert is about to expire and needs to be renewed"""

@@ -3,6 +3,7 @@ import pwd
 import json
 import shutil
 import tempfile
+from pathlib import Path
 from collections import namedtuple
 from datetime import datetime, timedelta
 
@@ -153,7 +154,7 @@ def test__init__certificate():
     assert cert.partition == "Partition"
     assert cert.name == "Name"
     assert cert.status == "New"
-    assert cert.path == "./cert/%s_%s.json" % ("Partition", "Name")
+    assert str(cert.path) == "cert/%s_%s.json" % ("Partition", "Name")
     assert cert.validation_method == "http-01"
 
 
@@ -292,9 +293,11 @@ def test_save_when_owned_by_another_user(opt_user):
     cert.save()
     uid = pwd.getpwnam(opt_user).pw_uid
     os.chown(".", uid, -1)
-    # The folders must be owned be the correct user
+    # The folders must be owned by the correct user
     for folder in FOLDERS:
         os.chown(folder, uid, -1)
     os.setuid(uid)
     cert.save()
-    assert os.path.isfile(cert.path)
+    path = Path(cert.path)
+    assert path.exists()
+    assert path.owner() == opt_user
