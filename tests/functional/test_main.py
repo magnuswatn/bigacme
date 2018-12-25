@@ -83,25 +83,6 @@ def use_pebble(func):
     return pebble_wrapper
 
 
-@pytest.fixture(scope="session")
-def pebble():
-    pebble_proc = subprocess.Popen(
-        [
-            "tests/functional/pebble/pebble",
-            "-config",
-            "tests/functional/pebble/pebble-config.json",
-        ],
-        stdout=subprocess.PIPE,
-    )
-
-    while b"Root CA certificate available at" not in pebble_proc.stdout.readline():
-        pebble_proc.poll()
-        if pebble_proc.returncode is not None:
-            raise Exception("Pebble failed to start")
-    yield pebble_proc
-    pebble_proc.kill()
-
-
 def test_version():
     """The 'bigacme version' command should output the version number (plus newline)"""
     output = subprocess.check_output(["bigacme", "version"]).decode().split("\n")[0]

@@ -83,3 +83,24 @@ def opt_partition(request):
 @pytest.fixture(scope="module")
 def opt_user(request):
     return request.config.getoption("--system-user")
+
+
+@pytest.fixture(scope="session")
+def pebble():
+    pebble_proc = subprocess.Popen(
+        [
+            "tests/functional/pebble/pebble",
+            "-config",
+            "tests/functional/pebble/pebble-config.json",
+        ],
+        stdout=subprocess.PIPE,
+    )
+
+    while b"Root CA certificate available at" not in pebble_proc.stdout.readline():
+        pebble_proc.poll()
+        if pebble_proc.returncode is not None:
+            raise Exception("Pebble failed to start")
+    yield pebble_proc
+    pebble_proc.kill()
+    # for easier debugging
+    print(pebble_proc.communicate()[0].decode())

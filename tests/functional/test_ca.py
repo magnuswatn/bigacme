@@ -34,25 +34,6 @@ def use_pebble(func):
     return pebble_wrapper
 
 
-@pytest.fixture(scope="session")
-def pebble():
-    pebble_proc = subprocess.Popen(
-        [
-            "tests/functional/pebble/pebble",
-            "-config",
-            "tests/functional/pebble/pebble-config.json",
-        ],
-        stdout=subprocess.PIPE,
-    )
-
-    while b"Root CA certificate available at" not in pebble_proc.stdout.readline():
-        pebble_proc.poll()
-        if pebble_proc.returncode is not None:
-            raise Exception("Pebble failed to start")
-    yield pebble_proc
-    pebble_proc.kill()
-
-
 @use_pebble
 def test_register_and_save_account(pebble):
     configtp = namedtuple("Config", ["cm_account", "ca", "ca_proxy"])
