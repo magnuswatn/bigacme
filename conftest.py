@@ -85,7 +85,7 @@ def opt_user(request):
     return request.config.getoption("--system-user")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def pebble():
     pebble_proc = subprocess.Popen(
         [
