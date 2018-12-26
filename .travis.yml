@@ -4,10 +4,7 @@ dist: xenial
 python: "3.6"
 install:
 - pip install -r requirements.test.txt
-before_script:
-- sudo useradd bigacmeuser
 script:
-- pytest --lb $LB --pass $PASS --cov=bigacme
-- sudo $(which pytest) --system-user bigacmeuser --cov=bigacme -k test_save_when_owned_by_another_user
+- sudo env "PATH=$PATH" pytest --lb $LB --pass $PASS --system-user $USER --cov=bigacme
 after_success:
 - codecov
