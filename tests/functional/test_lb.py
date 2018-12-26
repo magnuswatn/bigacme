@@ -66,24 +66,21 @@ def test_send__and_remove_challenge(lb, rest_lb, opt_partition, opt_datagroup):
     datag = rest_lb.tm.ltm.data_group.internals.internal.load(
         partition=opt_partition, name=opt_datagroup
     )
-    assert {u"data": u"striiing", u"name": u"test.watn.no:hei"} in datag.records
+    assert {"data": "striiing", "name": "test.watn.no:hei"} in datag.records
 
     # Should not fail when already exists
     lb.send_challenge("test.watn.no", "hei", "striiing2")
     datag = rest_lb.tm.ltm.data_group.internals.internal.load(
         partition=opt_partition, name=opt_datagroup
     )
-    assert {u"data": u"striiing2", u"name": u"test.watn.no:hei"} in datag.records
+    assert {"data": "striiing2", "name": "test.watn.no:hei"} in datag.records
 
     lb.remove_challenge("test.watn.no", "hei")
     datag = rest_lb.tm.ltm.data_group.internals.internal.load(
         partition=opt_partition, name=opt_datagroup
     )
     if hasattr(datag, "records"):
-        assert {
-            u"data": u"striiing2",
-            u"name": u"test.watn.no:hei",
-        } not in datag.records
+        assert {"data": "striiing2", "name": "test.watn.no:hei"} not in datag.records
 
 
 def test_get_csr(lb, rest_lb):
@@ -122,7 +119,7 @@ def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
     """
     partition = rest_lb.tm.auth.partitions.partition.create(name="bigacmeTestPartition")
 
-    partition_access = [{u"role": u"guest", u"name": u"Common"}]
+    partition_access = [{"role": "guest", "name": "Common"}]
     user = rest_lb.tm.auth.users.user.create(
         name="bigacmeTestUser",
         tmPartition="Common",
