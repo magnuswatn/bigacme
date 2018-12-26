@@ -538,7 +538,7 @@ def renew_cert():
     # We set the not after time to 10 days in the future. That should mark if for renewal
     certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
     new_expr_date = datetime.datetime.today().utcnow() + datetime.timedelta(days=10)
-    certobj.not_after = new_expr_date.replace(microsecond=0).isoformat()
+    certobj.not_after = new_expr_date.replace(microsecond=0)
     certobj.save()
 
     cmd = subprocess.Popen(
@@ -557,10 +557,11 @@ def renew_cert():
 
 
 def install_cert():
-    # We set the not before before to 10 days in the past. That should mark if for installation
+    # We set the not before before to 10 days in the past.
+    # That should mark if for installation
     certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
     new_expr_date = datetime.datetime.today().utcnow() - datetime.timedelta(days=10)
-    certobj.not_before = new_expr_date.replace(microsecond=0).isoformat()
+    certobj.not_before = new_expr_date.replace(microsecond=0)
     certobj.save()
 
     cmd = subprocess.Popen(

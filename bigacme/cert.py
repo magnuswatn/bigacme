@@ -3,9 +3,9 @@ import os
 import uuid
 import json
 import logging
-import datetime
 
 from pathlib import Path
+from datetime import datetime, timedelta
 
 from cryptography.hazmat.backends import default_backend
 from cryptography import x509
@@ -31,17 +31,15 @@ def get_certs_that_need_action(config):
     to_be_installed = []
     all_certs = get_all_certs()
     for cert in all_certs:
-        if cert.about_to_expire(config.cm_renewal_days):
+        if cert.up_for_renewal(config.cm_renewal_days):
             to_be_renewed.append(cert)
-        elif cert.status == "To be installed" and cert.old_enough(
-            config.cm_delayed_days
-        ):
+        elif cert.up_for_installation(config.cm_delayed_days):
             to_be_installed.append(cert)
     return to_be_renewed, to_be_installed
 
 
 def get_all_certs():
-    """Returns all the certificates that are up for renewal"""
+    """Returns all the stored certificates"""
     certs = []
     for path in Path("cert").iterdir():
         if path.is_file():
@@ -63,14 +61,16 @@ def _get_cert_dates(pem_cert):
         cert.not_valid_before,
         cert.not_valid_after,
     )
-    return cert.not_valid_after.isoformat(), cert.not_valid_before.isoformat()
+    return cert.not_valid_after, cert.not_valid_before
 
 
-def _check_if_cert_about_to_expire(not_after_str, threshold):
-    """Check whether a certificate with the specified not after date is about to expire"""
-    threshold = threshold * -1
-    datelimit = datetime.datetime.today().utcnow() - datetime.timedelta(days=threshold)
-    not_after = datetime.datetime.strptime(not_after_str, "%Y-%m-%dT%H:%M:%S")
+def _check_if_cert_about_to_expire(not_after, threshold):
+    """
+    Check whether a certificate with the specified
+    not after date is about to expire.
+    """
+    datelimit = datetime.today().utcnow() - timedelta(days=threshold * -1)
+
     if not_after < datelimit:
         logger.debug("'%s' is before '%s', returning True", not_after, datelimit)
         return True
@@ -83,15 +83,14 @@ def delete_expired_backups():
     """Deletes expired certificates from the backup folder"""
     for path in Path("cert", "backup").iterdir():
         try:
-            with path.open() as open_file:
-                not_after_str, _ = _get_cert_dates(open_file.read())
+            not_after, _ = _get_cert_dates(path.read_text())
         except ValueError as error:
             if str(error) == "Unable to load certificate":
                 logger.warning("Could not load '%s' as a certificate", path.resolve())
                 continue
             else:
                 raise
-        if _check_if_cert_about_to_expire(not_after_str, 0):
+        if _check_if_cert_about_to_expire(not_after, 0):
             logger.debug("Deleting cert '%s'", path.resolve())
             path.unlink()
 
@@ -99,29 +98,34 @@ def delete_expired_backups():
 class Certificate:
     """Represents a stored certificate + csr"""
 
-    def __init__(self, partition, name):
-        self.csr = self._cert = None
-        self.not_after = self.not_before = None
+    def __init__(self, partition, name, **kwargs):
         self.name, self.partition = name, partition
-        self.status = "New"
-        self.validation_method = "http-01"
+        self.path = Path("cert", f"{partition}_{name}.json")
+
+        self.csr = kwargs.pop("csr", None)
+        self._cert = kwargs.pop("cert", None)
+        self.status = kwargs.pop("status", "New")
+        self.validation_method = kwargs.pop("validation_method", "http-01")
+        self.not_after = kwargs.pop("not_after", datetime.fromtimestamp(0))
+        self.not_before = kwargs.pop("not_before", datetime.fromtimestamp(0))
 
     @classmethod
     def load(cls, path):
         """Load a certificate from a specified file"""
+
         loaded = json.loads(path.read_text())
-        cert = cls(loaded["partition"], loaded["name"])
-        for name, key in loaded.items():
-            setattr(cert, name, key)
-        return cert
+
+        not_after = datetime.strptime(loaded.pop("not_after"), "%Y-%m-%dT%H:%M:%S")
+        not_before = datetime.strptime(loaded.pop("not_before"), "%Y-%m-%dT%H:%M:%S")
+
+        loaded.update({"not_before": not_before, "not_after": not_after})
+
+        return cls(**loaded)
 
     @classmethod
     def new(cls, partition, name, csr, validation_method):
         """Creates a new Certificate object from a csr"""
-        cert = cls(partition, name)
-        cert.csr = csr
-        cert.validation_method = validation_method
-        return cert
+        return cls(partition, name, csr=csr, validation_method=validation_method)
 
     @classmethod
     def get(cls, partition, name):
@@ -132,12 +136,8 @@ class Certificate:
         raise CertificateNotFoundError
 
     @property
-    def path(self):
-        return Path("cert", f"{self.partition}_{self.name}.json")
-
-    @property
     def cert(self):
-        """The pem encoded certificate"""
+        """The pem encoded certificate (with chain)"""
         return self._cert
 
     @cert.setter
@@ -147,13 +147,28 @@ class Certificate:
 
     def save(self):
         """Saves the cert object to disk"""
-        dumped_json = json.dumps(self.__dict__, indent=4, sort_keys=True)
+
+        dumped_json = json.dumps(
+            {
+                "name": self.name,
+                "partition": self.partition,
+                "status": self.status,
+                "not_before": self.not_before.isoformat(),
+                "not_after": self.not_after.isoformat(),
+                "csr": self.csr,
+                "cert": self.cert,
+                "validation_method": self.validation_method,
+            },
+            indent=4,
+            sort_keys=True,
+        )
 
         try:
             self.path.write_text(dumped_json)
         except IOError as error:
             if error.errno == 13:
-                # It may be owned by another user. Try to recreate it.
+                # It may be owned by another user,
+                # try to recreate it.
                 temp_path = Path(str(uuid.uuid1()))
                 self.path.rename(temp_path)
                 self.path.write_text(dumped_json)
@@ -178,19 +193,25 @@ class Certificate:
         """Removes the certificate from disk"""
         self.path.unlink()
 
-    def about_to_expire(self, threshold):
-        """Checks if the cert is about to expire and needs to be renewed"""
+    def up_for_renewal(self, threshold):
+        """Checks if the cert is in need of renewal"""
         return _check_if_cert_about_to_expire(self.not_after, threshold)
 
-    def old_enough(self, threshold):
-        """Checks if the cert is old enough to be installed"""
-        datelimit = datetime.datetime.today().utcnow() - datetime.timedelta(
-            days=threshold
-        )
-        not_before = datetime.datetime.strptime(self.not_before, "%Y-%m-%dT%H:%M:%S")
-        if not_before < datelimit:
-            logger.debug("'%s' is before '%s', returning True", not_before, datelimit)
+    def up_for_installation(self, threshold):
+        """Checks if the cert is ready to be installed"""
+
+        if self.status != "To be installed":
+            return False
+
+        datelimit = datetime.today().utcnow() - timedelta(days=threshold)
+
+        if self.not_before < datelimit:
+            logger.debug(
+                "'%s' is before '%s', returning True", self.not_before, datelimit
+            )
             return True
         else:
-            logger.debug("'%s' is after '%s', returning False", not_before, datelimit)
+            logger.debug(
+                "'%s' is after '%s', returning False", self.not_before, datelimit
+            )
             return False

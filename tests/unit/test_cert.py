@@ -131,8 +131,8 @@ def test_get_cert_dates():
     expected_nvb = (datetime.today().utcnow() + timedelta(seconds=-10800)).strftime(
         "%Y-%m-%dT%H:%M:%S"
     )
-    assert actual_nva == expected_nva
-    assert actual_nvb == expected_nvb
+    assert actual_nva.isoformat() == expected_nva
+    assert actual_nvb.isoformat() == expected_nvb
 
 
 def test_delete_expired_backups():
@@ -244,36 +244,46 @@ def test_renew():
     assert cert.status == "To be installed"
 
 
-def test_old_enough():
+def test_up_for_installation():
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
     cert = bigacme.cert.Certificate.new("Common", "test_old_enough", csr, "http-01")
     cert.cert = _generate_certificate(-1980000, 4320000)
-    assert cert.old_enough(13)
+    cert.status = "To be installed"
+    assert cert.up_for_installation(13)
 
 
-def test_not_old_enough():
+def test_not_up_for_installation_not_old_enough():
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
     cert = bigacme.cert.Certificate.new("Common", "test_old_enough", csr, "http-01")
     cert.cert = _generate_certificate(0, 4320000)
-    assert not cert.old_enough(14)
+    cert.status = "To be installed"
+    assert not cert.up_for_installation(14)
 
 
-def test_about_to_expire():
+def test_not_up_for_installation_wrong_status():
+    csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
+    cert = bigacme.cert.Certificate.new("Common", "test_old_enough", csr, "http-01")
+    cert.cert = _generate_certificate(-1980000, 4320000)
+    cert.status = "Installed"
+    assert not cert.up_for_installation(13)
+
+
+def test_up_for_renewal():
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
     cert = bigacme.cert.Certificate.new(
         "Common", "test_about_to_expire", csr, "http-01"
     )
     cert.cert = _generate_certificate(-10800, 432000)
-    assert cert.about_to_expire(14)
+    assert cert.up_for_renewal(14)
 
 
-def test_not_about_to_expire():
+def test_not_up_for_renewal():
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
     cert = bigacme.cert.Certificate.new(
         "Common", "test_not_about_to_expire", csr, "http-01"
     )
     cert.cert = _generate_certificate(-10800, 432000000)
-    assert not cert.about_to_expire(14)
+    assert not cert.up_for_renewal(14)
 
 
 def test_save_when_owned_by_another_user(opt_user):
