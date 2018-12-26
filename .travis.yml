@@ -7,6 +7,7 @@ install:
 before_script:
 - sudo useradd bigacmeuser
 script:
-- sudo $(which pytest) --lb $LB --pass $PASS --system-user bigacmeuser --cov=bigacme
+- pytest --lb $LB --pass $PASS --cov=bigacme
+- sudo $(which pytest) --system-user bigacmeuser --cov=bigacme -k test_save_when_owned_by_another_user
 after_success:
 - codecov
