@@ -1,9 +1,12 @@
 language: python
-python:
-- '3.6'
+sudo: required
+dist: xenial
+python: "3.6"
 install:
 - pip install -r requirements.test.txt
+before_script:
+- sudo useradd bigacmeuser
 script:
-- pytest --lb $LB --pass $PASS --cov=bigacme
+- sudo pytest --lb $LB --pass $PASS --system-user bigacmeuser --cov=bigacme
 after_success:
 - codecov
