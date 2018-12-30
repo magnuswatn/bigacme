@@ -535,7 +535,7 @@ def _validate_bigip_name(name):
     results (path traversal). Best not to accept names like that.
     """
 
-    allowed_characters = string.ascii_letters + string.digits + "_-"
+    allowed_characters = string.ascii_letters + string.digits + "._-"
 
     for char in name:
         if char not in allowed_characters:
