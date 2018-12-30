@@ -457,8 +457,8 @@ def list_certs(args, configuration):
             (
                 certificate.partition,
                 certificate.name,
-                certificate.validation_method,
-                certificate.status,
+                certificate.validation_method.value,
+                certificate.status.value,
             )
         )
     relevant_certs.sort()
