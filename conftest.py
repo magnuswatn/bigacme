@@ -85,8 +85,21 @@ def opt_user(request):
     return request.config.getoption("--system-user")
 
 
+# pebble is module scoped even though it is used by several
+# modules, so that it is always killed by the same user as it
+# was created (the user is changed in the unit tests for cert.py
+# if the tests are run as root)
 @pytest.fixture(scope="module")
 def pebble():
+    # Pebble reject 15 % of nonces by default,
+    # turn that off to get reliable testing.
+    # (clients should handle that gracefully,
+    # and python-acme will retry requests
+    # once in case of bad nonce, but Pebble
+    # will sometimes reject two requsts in a
+    # row, so the tests sometimes fails anyways).
+    env = {"PEBBLE_WFE_NONCEREJECT": "0"}
+
     pebble_proc = subprocess.Popen(
         [
             "tests/functional/pebble/pebble",
@@ -94,6 +107,7 @@ def pebble():
             "tests/functional/pebble/pebble-config.json",
         ],
         stdout=subprocess.PIPE,
+        env=env,
     )
 
     while b"Root CA certificate available at" not in pebble_proc.stdout.readline():
