@@ -1,5 +1,7 @@
 import os
 import sys
+import random
+import string
 import tempfile
 from collections import namedtuple
 
@@ -38,6 +40,11 @@ def _generate_csr(cn, san):
     req.set_pubkey(key)
     req.sign(key, "sha256")
     return OpenSSL.crypto.dump_certificate_request(OpenSSL.crypto.FILETYPE_PEM, req)
+
+
+def _generate_password():
+    chars = string.ascii_uppercase + string.ascii_lowercase + string.digits
+    return "".join(random.SystemRandom().choice(chars) for _ in range(32))
 
 
 @pytest.fixture(scope="module")
@@ -117,13 +124,14 @@ def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
     Create a partition and a user that does not have access to it, and try to retrieve
     a csr from the partition. This should fail with a AccessDeniedError.
     """
+    password = _generate_password()
     partition = rest_lb.tm.auth.partitions.partition.create(name="bigacmeTestPartition")
 
     partition_access = [{"role": "guest", "name": "Common"}]
     user = rest_lb.tm.auth.users.user.create(
         name="bigacmeTestUser",
         tmPartition="Common",
-        password="mpfiocj9YUHYhfds",
+        password=password,
         partitionAccess=partition_access,
     )
 
@@ -132,7 +140,7 @@ def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
     )
     config = configtp(
         lb_user="bigacmeTestUser",
-        lb_pwd="mpfiocj9YUHYhfds",
+        lb_pwd=password,
         lb1=opt_lb,
         lb2=None,
         lb_dg=opt_datagroup,
