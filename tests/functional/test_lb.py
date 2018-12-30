@@ -126,9 +126,19 @@ def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
         password="mpfiocj9YUHYhfds",
         partitionAccess=partition_access,
     )
-    bigip = lb(
-        "bigacmeTestUser", "mpfiocj9YUHYhfds", opt_lb, opt_datagroup, opt_partition
+
+    configtp = namedtuple(
+        "Config", ["lb_user", "lb_pwd", "lb1", "lb2", "lb_dg", "lb_dg_partition"]
     )
+    config = configtp(
+        lb_user="bigacmeTestUser",
+        lb_pwd="mpfiocj9YUHYhfds",
+        lb1=opt_lb,
+        lb2=None,
+        lb_dg=opt_datagroup,
+        lb_dg_partition=opt_partition,
+    )
+    bigip = bigacme.lb.LoadBalancer(config)
 
     with pytest.raises(bigacme.lb.AccessDeniedError):
         bigip.get_csr("bigacmeTestPartition", "anyName")
