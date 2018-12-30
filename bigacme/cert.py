@@ -4,6 +4,7 @@ import uuid
 import json
 import logging
 
+from enum import Enum
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -23,6 +24,26 @@ class CertificateNotFoundError(CertError):
     """Raised when the certificate was not found"""
 
     pass
+
+
+class CertEnum(Enum):
+    @classmethod
+    def from_string(cls, string):
+        for member in cls:
+            if member.value == string:
+                return member
+        raise ValueError(f"'{string}' not in enum")
+
+
+class Status(CertEnum):
+    NEW = "New"
+    INSTALLED = "Installed"
+    TO_BE_INSTALLED = "To be installed"
+
+
+class ValidationMethod(CertEnum):
+    HTTP01 = "http-01"
+    DNS01 = "dns-01"
 
 
 def get_certs_that_need_action(config):
@@ -104,8 +125,11 @@ class Certificate:
 
         self.csr = kwargs.pop("csr", None)
         self._cert = kwargs.pop("cert", None)
-        self.status = kwargs.pop("status", "New")
-        self.validation_method = kwargs.pop("validation_method", "http-01")
+        self.status = kwargs.pop("status", Status.NEW)
+        self.validation_method = kwargs.pop(
+            "validation_method", ValidationMethod.HTTP01
+        )
+
         self.not_after = kwargs.pop("not_after", datetime.fromtimestamp(0))
         self.not_before = kwargs.pop("not_before", datetime.fromtimestamp(0))
 
@@ -118,7 +142,21 @@ class Certificate:
         not_after = datetime.strptime(loaded.pop("not_after"), "%Y-%m-%dT%H:%M:%S")
         not_before = datetime.strptime(loaded.pop("not_before"), "%Y-%m-%dT%H:%M:%S")
 
-        loaded.update({"not_before": not_before, "not_after": not_after})
+        status = Status.from_string(loaded.pop("status"))
+        validation_method = ValidationMethod.from_string(
+            # default to http-01 if not specified
+            # (for backwards compability)
+            loaded.pop("validation_method", "http-01")
+        )
+
+        loaded.update(
+            {
+                "not_before": not_before,
+                "not_after": not_after,
+                "status": status,
+                "validation_method": validation_method,
+            }
+        )
 
         return cls(**loaded)
 
@@ -152,12 +190,12 @@ class Certificate:
             {
                 "name": self.name,
                 "partition": self.partition,
-                "status": self.status,
+                "status": self.status.value,
                 "not_before": self.not_before.isoformat(),
                 "not_after": self.not_after.isoformat(),
                 "csr": self.csr,
                 "cert": self.cert,
-                "validation_method": self.validation_method,
+                "validation_method": self.validation_method.value,
             },
             indent=4,
             sort_keys=True,
@@ -178,7 +216,7 @@ class Certificate:
 
     def mark_as_installed(self):
         """Marks the certicate as installed, and saves it to disk"""
-        self.status = "Installed"
+        self.status = Status.INSTALLED
         self.save()
 
     def renew(self, new_cert):
@@ -186,7 +224,7 @@ class Certificate:
         backup_path = Path("cert", "backup", f"{self.partition}_{self.name}.cer")
         backup_path.write_text(self.cert)
         self.cert = new_cert
-        self.status = "To be installed"
+        self.status = Status.TO_BE_INSTALLED
         self.save()
 
     def delete(self):
@@ -200,7 +238,7 @@ class Certificate:
     def up_for_installation(self, threshold):
         """Checks if the cert is ready to be installed"""
 
-        if self.status != "To be installed":
+        if self.status != Status.TO_BE_INSTALLED:
             return False
 
         datelimit = datetime.today().utcnow() - timedelta(days=threshold)

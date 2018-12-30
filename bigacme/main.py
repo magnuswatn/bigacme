@@ -177,10 +177,10 @@ def new_cert(args, configuration):
             logger.exception("Failed to initialize plugin:")
             sys.exit(f"Failed to initialize plugin. Error was: {error}")
 
-        chall_typ = "dns-01"
+        chall_typ = cert.ValidationMethod.DNS01
     else:
         dns_plugin = None
-        chall_typ = "http-01"
+        chall_typ = cert.ValidationMethod.HTTP01
 
     print("Getting the CSR from the Big-IP...")
 
@@ -211,7 +211,7 @@ def new_cert(args, configuration):
         logger.error(
             "Could not get a certificate from the CA. The error was: %s", error
         )
-        if chall_typ == "http-01":
+        if chall_typ == cert.ValidationMethod.HTTP01:
             sys.exit(
                 (
                     "Could not get a certificate from the CA. Is the iRule attached to the "
@@ -248,7 +248,7 @@ def renew(args, configuration):
             renewal.validation_method,
         )
 
-        if renewal.validation_method == "dns-01" and not dns_plugin:
+        if renewal.validation_method == cert.ValidationMethod.DNS01 and not dns_plugin:
             try:
                 dns_plugin = plugin.get_plugin(configuration)
             except plugin.PluginError:
@@ -494,12 +494,12 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
     order = acme_ca.order_new_cert(csr.csr)
     challenges = acme_ca.get_challenges_from_order(order, csr.validation_method)
 
-    if csr.validation_method == "http-01":
+    if csr.validation_method == cert.ValidationMethod.HTTP01:
         for challenge in challenges:
             bigip.send_challenge(
                 challenge.domain, challenge.challenge.path, challenge.validation
             )
-    elif csr.validation_method == "dns-01":
+    elif csr.validation_method == cert.ValidationMethod.DNS01:
         for challenge in challenges:
             record_name = challenge.challenge.validation_domain_name(challenge.domain)
             dns_plugin.perform(challenge.domain, record_name, challenge.validation)
@@ -514,10 +514,10 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
         certificate = acme_ca.get_certificate_from_ca(order)
     finally:
         # cleanup
-        if csr.validation_method == "http-01":
+        if csr.validation_method == cert.ValidationMethod.HTTP01:
             for challenge in challenges:
                 bigip.remove_challenge(challenge.domain, challenge.challenge.path)
-        elif csr.validation_method == "dns-01":
+        elif csr.validation_method == cert.ValidationMethod.DNS01:
             for challenge in challenges:
                 record_name = challenge.challenge.validation_domain_name(
                     challenge.domain

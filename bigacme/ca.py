@@ -138,7 +138,7 @@ class CertificateAuthority:
     def get_challenges_from_order(self, order, validation_method):
         """Returns the challenges for the specified validation method from the order"""
         authz = order.authorizations
-        desired_challenges = _return_desired_challenges(authz, validation_method)
+        desired_challenges = _return_desired_challenges(authz, validation_method.value)
         return self.return_tuple_from_challenges(desired_challenges)
 
     def answer_challenges(self, challenges):

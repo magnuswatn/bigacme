@@ -553,7 +553,7 @@ def renew_cert():
     assert "Renewing cert" in log_text
 
     certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
-    assert certobj.status == "To be installed"
+    assert certobj.status == cert.Status.TO_BE_INSTALLED
 
 
 def install_cert():
@@ -574,7 +574,7 @@ def install_cert():
     assert "Installing cert" in log_text
 
     certobj = cert.Certificate.get("Common", "get_new_cert_Pebble")
-    assert certobj.status == "Installed"
+    assert certobj.status == cert.Status.INSTALLED
 
 
 def revoke_cert():
