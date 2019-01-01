@@ -5,15 +5,16 @@ import errno
 import string
 import getpass
 import datetime
-import argparse
 import logging
 import logging.config
-
 from configparser import NoSectionError, NoOptionError
+
+import click
 from acme import errors as acme_errors
 
 from . import config
 from . import cert
+from . import utils
 from . import ca
 from . import lb
 from . import plugin
@@ -25,143 +26,147 @@ from .vendor import click_spinner
 logger = logging.getLogger(__name__)
 
 
-def main():
-    """Parses the parameters and calls the right function"""
-    parser = argparse.ArgumentParser(description="ACME client for Big-IP")
-    parser.add_argument(
-        "--config-dir",
-        default=".",
-        help="the config dir to use. Defaults to the current folder",
-    )
-    subparsers = parser.add_subparsers(
-        help="The operation you want to do:", dest="operation"
-    )
-    subparsers.required = True
-
-    parser_new = subparsers.add_parser("new", help="request a new certificate")
-    parser_new.add_argument(
-        "partition",
-        help="the name of partition on the Big-IP",
-        type=_validate_bigip_name,
-    )
-    parser_new.add_argument(
-        "csrname", help="the name of the csr on the Big-IP", type=_validate_bigip_name
-    )
-    parser_new.add_argument(
-        "-dns", help="Use DNS validation instead of HTTP", action="store_true"
-    )
-    parser_new.set_defaults(func=new_cert)
-
-    parser_remove = subparsers.add_parser(
-        "remove", help="remove a certificate, so that it won't be renewd"
-    )
-    parser_remove.add_argument(
-        "partition",
-        help="the name of partition on the Big-IP",
-        type=_validate_bigip_name,
-    )
-    parser_remove.add_argument(
-        "csrname", help="the name of the csr on the Big-IP", type=_validate_bigip_name
-    )
-    parser_remove.set_defaults(func=remove)
-
-    parser_revoke = subparsers.add_parser("revoke", help="revoke a certificate")
-    parser_revoke.add_argument(
-        "partition",
-        help="the name of partition on the Big-IP",
-        type=_validate_bigip_name,
-    )
-    parser_revoke.add_argument(
-        "csrname", help="the name of the csr on the Big-IP", type=_validate_bigip_name
-    )
-    parser_revoke.set_defaults(func=revoke)
-
-    parser_renew = subparsers.add_parser("renew", help="renew existing certificates")
-    parser_renew.set_defaults(func=renew)
-
-    parser_test = subparsers.add_parser(
-        "test", help="test connectivity to the CA and the load balancer"
-    )
-    parser_test.set_defaults(func=test)
-
-    parser_register = subparsers.add_parser(
-        "register", help="generate an account key and register it with the CA"
-    )
-    parser_register.set_defaults(func=register)
-
-    parser_config = subparsers.add_parser(
-        "config", help="generate a folder structure with config files"
-    )
-    parser_config.add_argument(
-        "-debug",
-        help="Create logging config with DEBUG for bigacme",
-        action="store_true",
-    )
-    parser_config.set_defaults(func=new_config)
-
-    parser_list = subparsers.add_parser(
-        "list", help="list all the certificates that will be renewed"
-    )
-    parser_list.add_argument(
-        "partition", help="the name of partition on the Big-IP", nargs="?"
-    )
-    parser_list.set_defaults(func=list_certs)
-
-    parser_version = subparsers.add_parser(
-        "version", help="show the version number and exit"
-    )
-    parser_version.set_defaults(func=print_version)
-
-    args = parser.parse_args()
+def partition_completer(ctx, args, incomplete):
+    # disable logging  so we don't spam
+    # stdout with logging if something goes
+    # kinda wrong
+    logging.disable(60)
     try:
-        os.chdir(os.path.abspath(args.config_dir))
+        all_certs = cert.get_all_certs()
+        partitions = set(
+            [x.partition for x in all_certs if x.partition.startswith(incomplete)]
+        )
+        return sorted(partitions)
+    except:
+        return []
+
+
+def csrname_completer(ctx, args, incomplete):
+    # disable logging  so we don't spam
+    # stdout with logging if something goes
+    # kinda wrong
+    logging.disable(60)
+    try:
+        all_certs = cert.get_all_certs()
+        partition = args[-1]
+        return [
+            cert.name
+            for cert in all_certs
+            if cert.partition == partition and cert.name.startswith(incomplete)
+        ]
+    except:
+        return []
+
+
+def need_configuration(need_account=True):
+    """
+    Decorator for functions that need the configuration files.
+    """
+
+    def config_decorator(func):
+        def wrapper(*args, **kwargs):
+            if not config.check_configfiles():
+                click.secho(
+                    "Could not find the configuration files in the specified folder.",
+                    fg="red",
+                    err=True,
+                )
+                sys.exit(1)
+
+            if need_account:
+                if not config.check_account_file():
+                    click.secho(
+                        "Could not find an account. You must register with the CA.",
+                        fg="red",
+                        err=True,
+                    )
+                    sys.exit(1)
+            try:
+                the_config = config.read_configfile()
+            except (NoSectionError, NoOptionError, ValueError) as error:
+                click.secho(
+                    f"The configuration files was found, but was not complete: {error}",
+                    fg="red",
+                    err=True,
+                )
+                sys.exit(1)
+
+            kwargs.update({"configuration": the_config})
+
+            logging.config.fileConfig(
+                config.LOG_CONFIG_FILE, disable_existing_loggers=False
+            )
+            func(*args, **kwargs)
+
+        return wrapper
+
+    return config_decorator
+
+
+def handle_exceptions(func):
+    def wrapper(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except RuntimeError:
+            # Click abort inherits
+            # from RuntimeError.
+            raise
+        except Exception as error:
+            logger.exception("An unexpected error occured")
+            click.secho(f"An unexpected error occured: {error}", fg="red", err=True)
+            sys.exit(1)
+
+    return wrapper
+
+
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option(
+    "--config-dir",
+    default=".",
+    help="The config dir to use. Defaults to the current folder.",
+    type=click.Path(),
+)
+def cli(config_dir):
+    """
+    The main CLI. Only changes the current cirectory to the config dir,
+    everything else is handles by the commands.
+    """
+    try:
+        os.chdir(os.path.abspath(config_dir))
     except OSError as error:
         if error.errno == 2:
-            sys.exit("Could not locate the specified configuration folder")
+            click.secho(
+                f"Could not locate the specified configuration folder.",
+                fg="red",
+                err=True,
+            )
+            sys.exit(1)
         else:
             raise
-    if args.operation not in ["config", "version"]:
-        if not config.check_configfiles():
-            sys.exit("Could not find the configuration files in the specified folder")
-
-        if args.operation not in ["register", "test"]:
-            if not config.check_account_file():
-                sys.exit("Could not find an account. You must register with the CA.")
-
-        logging.config.fileConfig(
-            config.LOG_CONFIG_FILE, disable_existing_loggers=False
-        )
-
-        try:
-            the_config = config.read_configfile()
-        except (NoSectionError, NoOptionError, ValueError) as error:
-            sys.exit(
-                (
-                    "The configuration files was found, but was not complete. "
-                    f"The error was: {error}"
-                )
-            )
-    else:
-        the_config = None
-
-    try:
-        args.func(args, the_config)
-    except Exception:  # pylint: disable=W0703
-        logger.exception("An exception occured:")
-        sys.exit("An unexpected error occured. Check the log for the details")
 
 
-def new_cert(args, configuration):
-    """Fetches the specified CSR from the device and retrieves a certificate from the CA"""
+@cli.command(name="new", help="Request a new certificate.")
+@click.argument(  # type: ignore
+    "partition", callback=utils.validate_bigip_name, autocompletion=partition_completer
+)
+@click.argument("csrname", callback=utils.validate_bigip_name)
+@click.option("-dns", is_flag=True, help="Use DNS validation instead of HTTP.")
+@need_configuration()
+@handle_exceptions
+def new_cert(partition, csrname, dns, configuration):
+    """
+    Fetches the specified CSR from the device
+    and retrieves a certificate from the CA
+    """
     logger.info(
         "User '%s' started issuance of cert '%s' in partition '%s'",
         getpass.getuser(),
-        args.csrname,
-        args.partition,
+        csrname,
+        partition,
     )
     bigip = lb.LoadBalancer(configuration)
 
-    if args.dns:
+    if dns:
         try:
             dns_plugin = plugin.get_plugin(configuration)
         except plugin.NoPluginFoundError:
@@ -169,68 +174,100 @@ def new_cert(args, configuration):
                 "No DNS plugin was found. "
                 "Unable to get certificate by using DNS validation without plugin."
             )
-            sys.exit(
-                "No DNS plugin was found. A DNS plugin is needed for DNS validation."
+            click.secho(
+                "No DNS plugin was found. A DNS plugin is needed for DNS validation.",
+                fg="red",
+                err=True,
             )
+            sys.exit(1)
 
         except plugin.InvalidConfigError as error:
             logger.exception("Failed to initialize plugin:")
-            sys.exit(f"Failed to initialize plugin. Error was: {error}")
+            click.secho(
+                f"Failed to initialize plugin. Error was: {error}", fg="red", err=True
+            )
+            sys.exit(1)
 
         chall_typ = cert.ValidationMethod.DNS01
     else:
         dns_plugin = None
         chall_typ = cert.ValidationMethod.HTTP01
 
-    print("Getting the CSR from the Big-IP...")
+    click.echo("Getting the CSR from the Big-IP...")
 
     try:
         with click_spinner.spinner():
-            csr = bigip.get_csr(args.partition, args.csrname)
+            csr = bigip.get_csr(partition, csrname)
     except lb.PartitionNotFoundError:
-        logger.info("The partition '%s' was not found on the device", args.partition)
-        sys.exit("The specified partition does not seem to exist.")
+        logger.info("The partition '%s' was not found on the device", partition)
+        click.secho(
+            "The specified partition does not seem to exist.", fg="yellow", err=True
+        )
+        sys.exit(2)
+
     except lb.AccessDeniedError:
         logger.error("The user was denied access by the load balancer")
-        sys.exit(
+        click.secho(
             "The user was denied access by the load balancer. "
-            "Do the user have the Certificate Manager role in the specified partition?"
+            "Do the user have the Certificate Manager role in the specified partition?",
+            fg="yellow",
+            err=True,
         )
-    except lb.NotFoundError:
-        logger.info("The CSR '%s' was not found on the device", args.csrname)
-        sys.exit("Could not find the csr on the big-ip. Check the spelling.")
+        sys.exit(2)
 
-    certobj = cert.Certificate.new(args.partition, args.csrname, csr, chall_typ)
-    print("Getting a new certificate from the CA. This may take a while...")
+    except lb.NotFoundError:
+        logger.info("The CSR '%s' was not found on the device", csrname)
+        click.secho(
+            "Could not find the csr on the big-ip. Check the spelling.",
+            fg="yellow",
+            err=True,
+        )
+        sys.exit(2)
+
+    certobj = cert.Certificate.new(partition, csrname, csr, chall_typ)
+    click.echo("Getting a new certificate from the CA. This may take a while...")
     acme_ca = ca.CertificateAuthority(configuration)
 
     try:
         with click_spinner.spinner():
             certificate = _get_new_cert(acme_ca, bigip, certobj, dns_plugin)
     except ca.GetCertificateFailedError as error:
-        logger.error(
-            "Could not get a certificate from the CA. The error was: %s", error
-        )
+        logger.error("Could not get a certificate from the CA: %s", error)
         if chall_typ == cert.ValidationMethod.HTTP01:
-            sys.exit(
-                (
-                    "Could not get a certificate from the CA. Is the iRule attached to the "
-                    f"Virtual Server? The error was: {error}"
-                )
+            click.secho(
+                f"Is the iRule attached to the Virtual Server? "
+                f"Could not get a certificate from the CA: {error}",
+                fg="red",
+                err=True,
             )
+            sys.exit(1)
+
         else:
-            sys.exit(f"Could not get a certificate from the CA. The error was: {error}")
+            click.secho(
+                f"Could not get a certificate from the CA: {error}", fg="red", err=True
+            )
+            sys.exit(1)
+
     except plugin.PluginError as error:
         logger.exception("An error occured in %s:", dns_plugin.name)
-        sys.exit(f"An error occured while solving the challenge(s): {error}")
+        click.secho(
+            f"An error occured while solving the challenge(s): {error}",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
 
     certobj.cert = certificate
-    bigip.upload_certificate(args.partition, args.csrname, certobj.cert)
+    bigip.upload_certificate(partition, csrname, certobj.cert)
     certobj.mark_as_installed()
-    print("Done.")
+
+    click.secho("Done.", fg="green")
 
 
-def renew(args, configuration):
+@cli.command(name="renew", help="Renew existing certificates.")
+@need_configuration()
+@handle_exceptions
+def renew(configuration):
     """Goes through all the issued certs and renews them if needed"""
     logger.info("Starting renewal process")
     renewals, certs_to_be_installed = cert.get_certs_that_need_action(configuration)
@@ -291,50 +328,87 @@ def renew(args, configuration):
     logger.info("Renewal process completed")
 
 
-def remove(args, configuration):
+@cli.command(name="remove", help="Remove a certificate, so that it won't be renewed.")
+@click.argument(  # type: ignore
+    "partition", callback=utils.validate_bigip_name, autocompletion=partition_completer
+)
+@click.argument(  # type: ignore
+    "csrname", callback=utils.validate_bigip_name, autocompletion=csrname_completer
+)
+@need_configuration()
+@handle_exceptions
+def remove(partition, csrname, configuration):
     """Removes a certificate so that it won't get renewed"""
     try:
-        cert.Certificate.get(args.partition, args.csrname).delete()
+        cert.Certificate.get(partition, csrname).delete()
     except cert.CertificateNotFoundError:
-        sys.exit("The specified certificate was not found")
+        click.secho("The specified certificate was not found.", fg="yellow", err=True)
+        sys.exit(2)
+
+    click.confirm(
+        f"Are you sure you want to remove certificate '{csrname}' "
+        f"in partition '{partition}'?",
+        abort=True,
+    )
+
     logger.info(
         "User '%s' removed cert '%s' in partition '%s'",
         getpass.getuser(),
-        args.csrname,
-        args.partition,
+        csrname,
+        partition,
     )
-    print(f"Certificate '{args.csrname}' in partition '{args.partition}' removed")
+
+    click.secho(f"Certificate removed.", fg="green")
 
 
-def revoke(args, configuration):
+@cli.command(name="revoke", help="Revoke a certificate.")
+@click.argument(  # type: ignore
+    "partition", callback=utils.validate_bigip_name, autocompletion=partition_completer
+)
+@click.argument(  # type: ignore
+    "csrname", callback=utils.validate_bigip_name, autocompletion=csrname_completer
+)
+@need_configuration()
+@handle_exceptions
+def revoke(partition, csrname, configuration):
     """Revokes a certificate"""
 
     try:
-        certificate = cert.Certificate.get(args.partition, args.csrname)
+        certificate = cert.Certificate.get(partition, csrname)
     except cert.CertificateNotFoundError:
-        sys.exit("The specified certificate was not found.")
+        click.secho("The specified certificate was not found.", fg="yellow", err=True)
+        sys.exit(2)
 
-    print(
-        "This will REVOKE the specified certificate. It will no longer be usable.\r\n"
+    click.echo(
+        f"This will {click.style('REVOKE', bold=True)} the specified certificate. "
+        f"It will no longer be usable."
     )
-    print(
-        "You should ONLY do this if the private key has been compromised. It is not "
-        "necessary if the certificate is just beeing retired."
+    click.echo()
+    click.echo(
+        f"You should {click.style('ONLY', bold=True)} do this if the private key "
+        f"has been compromised. It is not necessary if the certificate is just "
+        f"beeing retired."
     )
-    print("Are you sure you want to continue? Type REVOKE (all caps) if you are sure.")
+    click.echo()
+    click.echo(
+        f"Are you sure you want to revoke certificate '{csrname}' "
+        f"in partition '{partition}'?"
+    )
+    click.echo()
+    click.echo("Type REVOKE (all caps) if you are sure.")
 
     choice = input()
     if choice != "REVOKE":
-        sys.exit("Exiting...")
+        sys.exit("Aborted!")
 
     choice = ""
     while choice not in ("0", "1", "3", "4", "5"):
-        print("What is the reason you are revoking this cert?")
-        print("0) Unspecified")
-        print("1) Key compromise")
-        print("3) Affiliation changed")
-        print("4) Superseded")
-        print("5) Cessation of operation")
+        click.echo("What is the reason you are revoking this cert?")
+        click.echo("0) Unspecified")
+        click.echo("1) Key compromise")
+        click.echo("3) Affiliation changed")
+        click.echo("4) Superseded")
+        click.echo("5) Cessation of operation")
         choice = input().replace(")", "")
     reason = int(choice)
 
@@ -344,114 +418,147 @@ def revoke(args, configuration):
     logger.info(
         "User '%s' revoked cert '%s' in partition '%s'",
         getpass.getuser(),
-        args.csrname,
-        args.partition,
+        csrname,
+        partition,
     )
-    print(f"Certificate '{args.csrname}' in partition '{args.partition}' revoked")
+    click.secho(f"Certificate revoked.", fg="green")
 
 
-def test(args, configuration):
+@cli.command(name="test", help="Test connectivity to the CA and the load balancer.")
+@need_configuration(need_account=False)
+@handle_exceptions
+def test(configuration):
     """Tests the connections to the load balancer and the ca"""
+
+    all_good = True
+
     try:
         lb.LoadBalancer(configuration)
     except lb.LoadBalancerError as error:
-        print(f"Could not connect to the load balancer: {error}")
+        click.secho(
+            f"Could not connect to the load balancer: {error}", fg="red", err=True
+        )
         logger.exception("Could not connect to the load balancer:")
+        all_good = False
     else:
-        print("The connection to the load balancer was successfull")
+        click.secho("The connection to the load balancer was successfull.", fg="green")
 
     try:
         ca.CertificateAuthority(configuration)
     except ca.CAError as error:
-        print(f"Could not connect to the CA: {error}")
+        click.secho(f"Could not connect to the CA: {error}", fg="red", err=True)
         logger.exception("Could not connect to the CA:")
+        all_good = False
     else:
-        print("The connection to the CA was successfull")
+        click.secho("The connection to the CA was successfull.", fg="green")
+
+    if not all_good:
+        sys.exit(1)
 
 
-def print_version(args, configuration):
+@cli.command(name="version", help="Show the version number and exit.")
+def print_version():
     """Prints the version number and exits"""
-    print(version.__version__)
+    click.echo(version.__version__)
 
 
-def register(args, configuration):
+@cli.command(name="register", help="Generate an account key and register with the CA.")
+@need_configuration(need_account=False)
+@handle_exceptions
+def register(configuration):
     """Genereates a account key, and registeres with the specified CA"""
     acme_ca = ca.CertificateAuthority(configuration)
     if acme_ca.key:
-        sys.exit("Account config already exists - already registered?")
+        click.secho(
+            "Account config already exists - already registered?", fg="yellow", err=True
+        )
+        sys.exit(2)
 
-    print("This will generate an account key and register it with the specified CA.")
-    print("Do you want to continue? yes or no")
-    choice = input().lower()
-    if choice not in ["y", "ya", "yes", "yass"]:
-        sys.exit("OK. Bye bye.")
+    click.echo(
+        "This will generate an account key and register it with the specified CA."
+    )
+    click.confirm("Do you want to continue?", abort=True)
 
     if "terms_of_service" in acme_ca.client.directory.meta:
-        print(
+        click.confirm(
             f"Do you agree with the terms of service, as described at "
-            f"{acme_ca.client.directory.meta.terms_of_service}?"
+            f"{acme_ca.client.directory.meta.terms_of_service}?",
+            abort=True,
         )
-        choice2 = input().lower()
-        if choice2 not in ["y", "ya", "yes", "yass"]:
-            sys.exit("You must agree to the terms of service to register.")
 
-    print("What mail address do you want to register with the account?")
-    mail = input().lower()
+    mail = click.prompt("What mail address do you want to register with the account?")
 
-    print(f"You typed in '{mail}', is this correct? yes or no.")
-    choice3 = input().lower()
-    if choice3 not in ["y", "ya", "yes", "yass"]:
-        sys.exit("Wrong mail. Exiting")
+    click.confirm(f"You typed in '{mail}', is this correct?", abort=True)
 
     try:
         acme_ca.register(mail)
     except acme_errors.Error as error:
         logger.exception("Failed to register with the CA:")
-        sys.exit(f"The registration failed. The error was: {error}")
-    print("Registration successful")
+        click.secho(f"The registration failed: {error}", fg="red", err=True)
+        sys.exit(1)
+
+    click.secho("Registration successful.", fg="green")
 
 
-def new_config(args, configuration):
+@cli.command(name="config", help="Generate a folder structure with config files.")
+@click.option("-debug", is_flag=True)
+def new_config(debug):
     """Creates the enviroment with configuration files and folders"""
-    print(
+
+    click.echo(
         "This will create the necessary folder structure, and configuration files "
         "in the specified configuration folder (default is the current folder)"
     )
-    print("Do you want to continue? yes or no")
 
-    choice = input().lower()
-    if choice != "yes" and choice != "y":
-        sys.exit("User did not want to continue. Exiting")
+    click.confirm("Do you want to continue?", abort=True)
 
     for folder in config.CONFIG_DIRS:
         try:
             os.makedirs(folder)
         except OSError as error:
             if error.errno == errno.EEXIST and os.path.isdir(folder):
-                print(f"The folder '{folder}' already exists.")
+                click.secho(
+                    f"The folder '{folder}' already exists.", fg="yellow", err=True
+                )
             else:
                 raise
 
     if not os.path.exists(config.CONFIG_FILE):
         config.create_configfile()
     else:
-        print("The config file already exists. Not touching it")
+        click.secho(
+            "The config file already exists. Not touching it.", fg="yellow", err=True
+        )
 
     if not os.path.exists(config.LOG_CONFIG_FILE):
-        config.create_logconfigfile(args.debug)
+        config.create_logconfigfile(debug)
     else:
-        print("The logging config file already exists. Not touching it")
+        click.secho(
+            "The logging config file already exists. Not touching it.",
+            fg="yellow",
+            err=True,
+        )
 
-    print("Done! Adjust the configuration files as needed")
+        click.secho("Done! Adjust the configuration files as needed.", fg="green")
 
 
-def list_certs(args, configuration):
+@cli.command(name="list", help="List all the certificates that will be renewed.")
+@click.argument(  # type: ignore
+    "partition",
+    callback=utils.validate_bigip_name,
+    autocompletion=partition_completer,
+    required=False,
+)
+@need_configuration(need_account=False)
+@handle_exceptions
+def list_certs(partition, configuration):
     """Lists all the certs that are going to be renewed"""
     columns = ("Partition", "Name", "Validation method", "Status")
     all_certs = cert.get_all_certs()
     relevant_certs = []
     for certificate in all_certs:
-        if args.partition and args.partition != certificate.partition:
+
+        if partition and partition != certificate.partition:
             continue
         relevant_certs.append(
             (
@@ -462,30 +569,12 @@ def list_certs(args, configuration):
             )
         )
     relevant_certs.sort()
+
     if relevant_certs:
-        _print_table(columns, relevant_certs)
+        utils.print_table(columns, relevant_certs)
     else:
-        print("No certificates found")
-
-
-def _print_table(headers, values):
-    """Prints an OK (ish) ascii table"""
-    max_widths = [len(str(x)) for x in headers]
-    for value in values:
-        max_widths = [max(x, len(str(y))) for x, y in zip(max_widths, value)]
-
-    header = [str(c).ljust(w) for w, c in zip(max_widths, headers)]
-    separator = ["-" * x for x in max_widths]
-
-    print("+ {} +".format(" + ".join(list(separator))))
-    print("| {} |".format(" | ".join(list(header))))
-    print("+ {} +".format(" + ".join(list(separator))))
-
-    for value in values:
-        cols = [str(c).ljust(w) for w, c in zip(max_widths, value)]
-        print("| {} |".format(" | ".join(list(cols))))
-
-    print("+ {} +".format(" + ".join(list(separator))))
+        click.secho("No certificates found.", fg="yellow", err=True)
+        sys.exit(2)
 
 
 def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
@@ -526,18 +615,3 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
             dns_plugin.finish_cleanup()
 
     return certificate
-
-
-def _validate_bigip_name(name):
-    """
-    Big-IP is kinda picky about names. Names with special characters
-    will (mostly) get rejected, and some (slashes) will lead to unexpected
-    results (path traversal). Best not to accept names like that.
-    """
-
-    allowed_characters = string.ascii_letters + string.digits + "._-"
-
-    for char in name:
-        if char not in allowed_characters:
-            raise argparse.ArgumentTypeError("The requested object name is invalid")
-    return name

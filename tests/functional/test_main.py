@@ -112,7 +112,7 @@ def test_nonexisting_config_folder():
     )
     assert (
         cmd.communicate()[1].decode()
-        == "Could not locate the specified configuration folder\n"
+        == "Could not locate the specified configuration folder.\n"
     )
     assert cmd.returncode == 1
 
@@ -122,7 +122,7 @@ def test_nonexisting_config_files():
     """The cli should fail if there is no config files in the config folder"""
     cmd = subprocess.Popen(["bigacme", "new", "Common", "test"], stderr=subprocess.PIPE)
     assert cmd.communicate()[1].decode() == (
-        "Could not find the configuration files in the " "specified folder\n"
+        "Could not find the configuration files in the specified folder.\n"
     )
     assert cmd.returncode == 1
 
@@ -134,7 +134,7 @@ def test_config_abort():
         ["bigacme", "config"], stdin=subprocess.PIPE, stderr=subprocess.PIPE
     )
     output = cmd.communicate(input=b"no\n")
-    assert output[1].decode() == "User did not want to continue. Exiting\n"
+    assert output[1].decode() == "Aborted!\n"
     folders = ["config", "cert", "cert/backup"]
     for folder in folders:
         assert not os.path.isdir(folder)
@@ -163,7 +163,7 @@ def test_remove_nonexisting_cert():
         ["bigacme", "remove", "Common", "notacert"], stderr=subprocess.PIPE
     )
     output = cmd.communicate()
-    assert cmd.returncode is 1
+    assert cmd.returncode is 2
     assert "The specified certificate was not found" in output[1].decode()
 
 
@@ -238,14 +238,16 @@ def test_revoke_nonexistent_cert():
 
 def test_blank():
     """With no arguments some usage info should be printed"""
-    cmd = subprocess.Popen(["bigacme"], stderr=subprocess.PIPE)
-    assert "usage" in cmd.communicate()[1].decode()
+    cmd = subprocess.Popen(["bigacme"], stdout=subprocess.PIPE)
+    assert "Usage" in cmd.communicate()[0].decode()
+
 
 @working_dir
 @existing_account
 def test_list_no_certs():
-    cmd = subprocess.Popen(["bigacme", "list"], stdout=subprocess.PIPE)
-    assert "No certificates found" in cmd.communicate()[0].decode()
+    cmd = subprocess.Popen(["bigacme", "list"], stderr=subprocess.PIPE)
+    assert "No certificates found" in cmd.communicate()[1].decode()
+
 
 @working_dir
 @existing_account
@@ -258,7 +260,8 @@ def test_list_all_certs():
     cmd = subprocess.Popen(["bigacme", "list"], stdout=subprocess.PIPE)
     output = cmd.communicate()[0].decode()
     # five certs plus headers and separators is ten
-    assert len(output.split('\n')) == 10
+    assert len(output.split("\n")) == 10
+
 
 @working_dir
 @existing_account
@@ -271,7 +274,8 @@ def test_list_specific_partition():
     cmd = subprocess.Popen(["bigacme", "list", "Partition1"], stdout=subprocess.PIPE)
     output = cmd.communicate()[0].decode()
     # one certs plus headers and separators is six
-    assert len(output.split('\n')) == 6
+    assert len(output.split("\n")) == 6
+
 
 @use_pebble
 def test_register_abort(pebble):
@@ -283,7 +287,7 @@ def test_register_abort(pebble):
         stderr=subprocess.PIPE,
     )
     output = cmd.communicate(input=b"no\n")
-    assert output[1].decode() == "OK. Bye bye.\n"
+    assert output[1].decode() == "Aborted!\n"
     assert cmd.returncode == 1
     assert not os.path.isfile("config/account.json")
 
@@ -298,7 +302,7 @@ def test_tos_no_agree(pebble):
         stderr=subprocess.PIPE,
     )
     output = cmd.communicate(input=b"yes\nno\n")
-    assert output[1].decode() == "You must agree to the terms of service to register.\n"
+    assert output[1].decode() == "Aborted!\n"
     assert cmd.returncode == 1
     assert not os.path.isfile("config/account.json")
 
@@ -313,7 +317,7 @@ def test_register_wrong_email(pebble):
         stderr=subprocess.PIPE,
     )
     output = cmd.communicate(input=b"yes\nyes\nemail@example.com\nno\n")
-    assert output[1].decode() == "Wrong mail. Exiting\n"
+    assert output[1].decode() == "Aborted!\n"
     assert cmd.returncode == 1
     assert not os.path.isfile("config/account.json")
 
@@ -339,7 +343,7 @@ def test_revoke_abort(pebble):
         stderr=subprocess.PIPE,
     )
     output = cmd.communicate(input=b"revoke\n")  # note not caps
-    assert output[1].decode() == "Exiting...\n"
+    assert output[1].decode() == "Aborted!\n"
     assert cmd.returncode == 1
 
 
@@ -355,7 +359,7 @@ def test_incomplete_config_files():
     cmd = subprocess.Popen(["bigacme", "new", "Common", "test"], stderr=subprocess.PIPE)
     stderr = cmd.communicate()[1]
     assert cmd.returncode == 1
-    assert b"The configuration files was found, but was not complete." in stderr
+    assert b"The configuration files was found, but was not complete" in stderr
     # should also say which section is missing
     assert b"Certificate Authority" in stderr
 
@@ -443,7 +447,7 @@ def test_test_lb_fail(pebble):
         stderr=subprocess.PIPE,
     )
     output = cmd.communicate()
-    assert "Could not connect to the load balancer" in output[0].decode()
+    assert "Could not connect to the load balancer" in output[1].decode()
 
 
 @use_pebble
@@ -461,7 +465,7 @@ def test_test_ca_fail(pebble):
         stderr=subprocess.PIPE,
     )
     output = cmd.communicate()
-    assert "Could not connect to the CA" in output[0].decode()
+    assert "Could not connect to the CA" in output[1].decode()
 
 
 @use_pebble

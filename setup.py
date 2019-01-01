@@ -11,6 +11,7 @@ setup(
     license='MIT',
     packages=find_packages(),
     install_requires=[
+        'click>=7.0',
         'bigsuds',
         'josepy',
         'acme>=0.22.0',
@@ -19,7 +20,7 @@ setup(
         ],
     entry_points={
         'console_scripts': [
-            'bigacme = bigacme.main:main',
+            'bigacme = bigacme.main:cli',
         ],
     },
     classifiers=[
