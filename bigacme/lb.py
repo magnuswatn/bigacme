@@ -81,7 +81,7 @@ class LoadBalancer:
             try:
                 lb1.System.SystemInfo.get_uptime()
             except bigsuds.OperationFailed as error:
-                raise CouldNotConnectToBalancerError(error)
+                raise CouldNotConnectToBalancerError(error) from error
             self.bigip = lb1
 
     def send_challenge(self, domain: str, path: str, string: str) -> None:
@@ -139,9 +139,9 @@ class LoadBalancer:
             logger.debug("Received error from the load balancer: %s", error)
 
             if "folder not found" in error.fault.faultstring:
-                raise PartitionNotFoundError()
+                raise PartitionNotFoundError() from error
             elif "Access Denied:" in error.fault.faultstring:
-                raise AccessDeniedError()
+                raise AccessDeniedError() from error
             else:
                 raise
         try:
@@ -154,9 +154,9 @@ class LoadBalancer:
             logger.debug("Received error from the load balancer: %s", error)
 
             if "Access Denied:" in error.fault.faultstring:
-                raise AccessDeniedError()
+                raise AccessDeniedError() from error
             elif "Not Found" in error.fault.faultstring:
-                raise NotFoundError()
+                raise NotFoundError() from error
             else:
                 raise
         return pem_csr
@@ -169,9 +169,9 @@ class LoadBalancer:
             logger.debug("Received error from the load balancer: %s", error)
 
             if "folder not found" in error.fault.faultstring:
-                raise PartitionNotFoundError()
+                raise PartitionNotFoundError() from error
             elif "Access Denied:" in error.fault.faultstring:
-                raise AccessDeniedError()
+                raise AccessDeniedError() from error
             else:
                 raise
         try:
@@ -182,6 +182,6 @@ class LoadBalancer:
             logger.debug("Received error from the load balancer: %s", error)
 
             if "Access Denied:" in error.fault.faultstring:
-                raise AccessDeniedError()
+                raise AccessDeniedError() from error
             else:
                 raise

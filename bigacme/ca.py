@@ -87,7 +87,7 @@ class CertificateAuthority:
                 network.get(configuration.ca).json()
             )
         except ValueError as error:
-            raise CouldNotRetrieveDirectoryFromCA(error)
+            raise CouldNotRetrieveDirectoryFromCA(error) from error
 
         self.client = client.ClientV2(directory, network)
 
@@ -168,13 +168,13 @@ class CertificateAuthority:
                             "The CA could not verify the challenge for "
                             f"{authzr.body.identifier.value}: {chall.error}."
                         )
-            raise GetCertificateFailedError(error_msg)
+            raise GetCertificateFailedError(error_msg) from error
         except acme_errors.TimeoutError:
             raise GetCertificateFailedError(
                 "Timed out while waiting for the CA to verify the challenges"
-            )
+            ) from error
         except messages.Error as error:
-            raise GetCertificateFailedError(error)
+            raise GetCertificateFailedError(error) from error
 
         # sanity check, ref 11.3 of the ACME spec
         _validate_cert_chain(order.fullchain_pem)
