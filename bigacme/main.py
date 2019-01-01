@@ -49,11 +49,13 @@ def csrname_completer(ctx, args, incomplete):
     try:
         all_certs = cert.get_all_certs()
         partition = args[-1]
-        return [
-            cert.name
-            for cert in all_certs
-            if cert.partition == partition and cert.name.startswith(incomplete)
-        ]
+        return sorted(
+            [
+                cert.name
+                for cert in all_certs
+                if cert.partition == partition and cert.name.startswith(incomplete)
+            ]
+        )
     except:
         return []
 
