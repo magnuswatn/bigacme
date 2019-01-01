@@ -355,7 +355,7 @@ def test_incomplete_config_files():
     and it should print what is wrong with the config
     """
     for line in fileinput.input("./config/config.ini", inplace=True):
-        sys.stdout.write(re.sub("\[Certificate Authority\]", "[what]", line))
+        sys.stdout.write(re.sub("\\[Certificate Authority\\]", "[what]", line))
     cmd = subprocess.Popen(["bigacme", "new", "Common", "test"], stderr=subprocess.PIPE)
     stderr = cmd.communicate()[1]
     assert cmd.returncode == 1
