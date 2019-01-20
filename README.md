@@ -8,7 +8,7 @@ An ACME client for F5 Big-IP.
 It can be used to get certificates from a ACME compatible CA, and auto-renew them before they expire. This can reduse the administrative burden of SSL.
 
 <p align="center">
-    <img src="https://raw.githubusercontent.com/magnuswatn/bigacme/acme-v2/docs/example.svg">
+    <img src="https://static.watn.no/bigacme.svg">
 </p>
 
 ## Prerequisites
