@@ -12,4 +12,4 @@ To get a certificate:
 3) Run bigacme
  While in the configuration folder, run ```bigacme new partition csrname```. So if you called the csr "example.com_LetsEncrypt" and it is located in the app01 partition, run ```bigacme new app01 example.com_LetsEncrypt```.
 
-Now you're done. The certificate will be installed on the Big-IP and renewed before it expires. Do not remove the iRule, as it will break the validation process.
+Now you're done. The certificate will be installed on the Big-IP and renewed before it expires. Do not remove the iRule from the virtual server, as it will break the validation process.

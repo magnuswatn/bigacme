@@ -8,7 +8,7 @@ Then you must create a user for bigacme. It must be have the iRule Manager role 
 
 ### Installation of bigacme
 
-Bigacme must be installed on a server which is able to connect to the Big-IP and the CA. It is only tested on GNU/Linux. The easyest way is just to install it wil the setup.py:
+Bigacme must be installed on a server which is able to connect to the Big-IP and the CA. It is only tested on GNU/Linux, but should work on Windows as well. The easiest way is just to install it with the setup.py:
 
 ```python setup.py install```
 
@@ -22,13 +22,12 @@ Then you must adapt the config.ini file in the config folder to your environment
 
 ```
 [Common]
-renewal days = This adjust how many days a certificate should have left before it is renewed.
+renewal days = This adjust how many days before the expiry date certificates will be renewed.
 delayed installation days = This adjust how long to wait before installing a renewed certificate. A certificate issued seconds ago can cause troubles with some clients with bad clocks. Set to 0 for immediately installation.
-include chain = This selects whether the certificate should be installed with the chain or not. If False, you must specify a chain in the client ssl profile on the Big-IP. This saves space on the Big-IP, but be aware that if the CA changes intermediate between renewals you can end up with a invalid chain.
-account key = This is the path to the account key. This will be generated for you.
+account config = This is the path to the config file containing your account info (key and kid). This will be generated for you.
 
 [Load Balancer]
-cluster = This specifies wheather you have several Big-IP instances in a failover cluster. If True, bigacme will connect to both and choose the active one.
+cluster = This specifies whether you have several Big-IP instances in a failover cluster. If True, bigacme will connect to both and choose the active one.
 host 1 = hostname for the first big-ip
 host 2 = hostname for the second big-ip. You can delete this if you only have one Big-IP.
 username = Username for the account on the Big-IP bigacme should use.

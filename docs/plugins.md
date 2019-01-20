@@ -1,7 +1,7 @@
 Plugins
 ===
 
-Bigacme supports plugins, to be able to use DNS validation. This is useful for sites that are not avaible on the internet, or if port 80 is not avaible for http.
+Bigacme supports plugins, to be able to use DNS validation. This is useful for sites that are not available on the internet, or if port 80 is not available for http.
 
 A plugin should subclass the BigacmePlugin class, see [plugin.py](../bigacme/plugin.py). Everything should be pretty straith forward - it has similarities to certbot plugins.
 
