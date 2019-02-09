@@ -129,10 +129,7 @@ def handle_exceptions(func):
     type=click.Path(),
 )
 def cli(config_dir):
-    """
-    The main CLI. Only changes the current cirectory to the config dir,
-    everything else is handles by the commands.
-    """
+    """ACME client for Big-IP"""
     try:
         os.chdir(os.path.abspath(config_dir))
     except OSError as error:
