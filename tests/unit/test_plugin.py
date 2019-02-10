@@ -16,8 +16,21 @@ def _generate_dummy_config():
 def test_get_plugin_missing_config():
     configtp = namedtuple("Config", ["plugin"])
     config = configtp(plugin=None)
-    with pytest.raises(bigacme.plugin.InvalidConfigError):
-        bigacme.plugin.get_plugin(config)
+
+    class BigacmePlugin(bigacme.plugin.BigacmePlugin):
+        name = "A correct plugin"
+
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    registered_plugin = mock.MagicMock()
+    registered_plugin.load.return_value = BigacmePlugin
+
+    mock_entry_points = mock.MagicMock(return_value=[registered_plugin])
+
+    with mock.patch("bigacme.plugin.iter_entry_points", mock_entry_points):
+        with pytest.raises(bigacme.plugin.InvalidConfigError):
+            bigacme.plugin.get_plugin(config)
 
 
 def test_get_plugin_no_plugin():
