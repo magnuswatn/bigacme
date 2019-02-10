@@ -11,14 +11,12 @@ pylint = "*"
 "f5-sdk" = "*"
 pytest = "*"
 pytest-cov = "*"
-black = "*"
+black = "==18.9b0"
 mypy = "*"
 
 [requires]
 python_version = "3.6"
 
-[pipenv]
-allow_prereleases = true
 
 [scripts]
 tests = "bash -c 'py.test --lb $LB --pass $PASS'"
