@@ -106,11 +106,10 @@ def delete_expired_backups():
         try:
             not_after, _ = _get_cert_dates(path.read_text())
         except ValueError as error:
-            if str(error) == "Unable to load certificate":
-                logger.warning("Could not load '%s' as a certificate", path.resolve())
-                continue
-            else:
-                raise
+            logger.warning(
+                "Could not load '%s' as a certificate: %s", path.resolve(), error
+            )
+            continue
         if _check_if_cert_about_to_expire(not_after, 0):
             logger.debug("Deleting cert '%s'", path.resolve())
             path.unlink()
