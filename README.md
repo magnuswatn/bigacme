@@ -5,7 +5,7 @@ bigacme
 
 An ACME client for F5 Big-IP.
 
-It can be used to get certificates from a ACME compatible CA, and auto-renew them before they expire. This can reduse the administrative burden of SSL.
+It can be used to get certificates from a ACME compatible CA, and auto-renew them before they expire. This can reduce the administrative burden of SSL.
 
 <p align="center">
     <img src="https://static.watn.no/bigacme.svg">
