@@ -3,6 +3,9 @@ import pytest
 from bigacme import ca
 from acme import messages
 from acme import challenges
+from acme import errors as acme_errors
+
+from unittest.mock import MagicMock
 
 
 def test_return_desired_challenges():
@@ -113,3 +116,35 @@ def test_validate_cert_chain_invaild_chain():
     -----END PRIVATE KEY-----"""
     with pytest.raises(ca.ReceivedInvalidCertificateError):
         ca._validate_cert_chain(pem_chain)
+
+
+def test_get_certificate_from_ca_timeout():
+    fake_ca = MagicMock(spec=ca.CertificateAuthority)
+    order = MagicMock()
+    fake_ca.client = MagicMock()
+    fake_ca.client.poll_and_finalize.side_effect = acme_errors.TimeoutError
+    with pytest.raises(ca.GetCertificateFailedError) as error:
+        ca.CertificateAuthority.get_certificate_from_ca(fake_ca, order)
+    assert (
+        str(error.value)
+        == "Timed out while waiting for the CA to verify the challenges"
+    )
+
+
+def test_get_certificate_from_ca_error_from_server():
+    fake_ca = MagicMock(spec=ca.CertificateAuthority)
+    order = MagicMock()
+    fake_ca.client = MagicMock()
+    fake_ca.client.poll_and_finalize.side_effect = messages.Error
+    with pytest.raises(ca.GetCertificateFailedError) as error:
+        ca.CertificateAuthority.get_certificate_from_ca(fake_ca, order)
+
+
+def test_get_certificate_from_ca_weird_error():
+    fake_ca = MagicMock(spec=ca.CertificateAuthority)
+    order = MagicMock()
+    fake_ca.client = MagicMock()
+    fake_ca.client.poll_and_finalize.side_effect = acme_errors.UnexpectedUpdate("what")
+    with pytest.raises(ca.GetCertificateFailedError) as error:
+        ca.CertificateAuthority.get_certificate_from_ca(fake_ca, order)
+    assert str(error.value) == "what"

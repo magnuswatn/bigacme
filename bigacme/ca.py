@@ -169,11 +169,11 @@ class CertificateAuthority:
                             f"{authzr.body.identifier.value}: {chall.error}."
                         )
             raise GetCertificateFailedError(error_msg) from error
-        except acme_errors.TimeoutError:
+        except acme_errors.TimeoutError as error:
             raise GetCertificateFailedError(
                 "Timed out while waiting for the CA to verify the challenges"
             ) from error
-        except messages.Error as error:
+        except acme_errors.Error as error:
             raise GetCertificateFailedError(error) from error
 
         # sanity check, ref 11.3 of the ACME spec
