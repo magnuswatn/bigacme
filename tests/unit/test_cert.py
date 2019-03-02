@@ -68,21 +68,29 @@ def test_get_certs_that_need_action():
     csr = _generate_csr("commonName", b"DNS:san1,DNS:san2")
 
     # certs to be renewed
-    cert_tbr1 = bigacme.cert.Certificate.new("Common", "cert_tbr1", csr, bigacme.cert.ValidationMethod.HTTP01)
+    cert_tbr1 = bigacme.cert.Certificate.new(
+        "Common", "cert_tbr1", csr, bigacme.cert.ValidationMethod.HTTP01
+    )
     cert_tbr1.cert = _generate_certificate(-90800, 4320)
     cert_tbr1.mark_as_installed()
-    cert_tbr2 = bigacme.cert.Certificate.new("Common", "cert_tbr2", csr, bigacme.cert.ValidationMethod.HTTP01)
-    cert_tbr2.cert = _generate_certificate(-9320000, 90800)
+    cert_tbr2 = bigacme.cert.Certificate.new(
+        "Common", "cert_tbr2", csr, bigacme.cert.ValidationMethod.HTTP01
+    )
+    cert_tbr2.cert = _generate_certificate(-9_320_000, 90800)
     cert_tbr2.mark_as_installed()
 
     # certs to be installed
-    cert_tbi1 = bigacme.cert.Certificate.new("Common", "cert_tbi1", csr, bigacme.cert.ValidationMethod.HTTP01)
-    cert_tbi1.cert = _generate_certificate(-995700, 1923200)
+    cert_tbi1 = bigacme.cert.Certificate.new(
+        "Common", "cert_tbi1", csr, bigacme.cert.ValidationMethod.HTTP01
+    )
+    cert_tbi1.cert = _generate_certificate(-995_700, 1_923_200)
     cert_tbi1.status = bigacme.cert.Status.TO_BE_INSTALLED
     cert_tbi1.save()
 
-    cert_tbi2 = bigacme.cert.Certificate.new("Common", "cert_tbi2", csr, bigacme.cert.ValidationMethod.HTTP01)
-    cert_tbi2.cert = _generate_certificate(-999700, 9123200)
+    cert_tbi2 = bigacme.cert.Certificate.new(
+        "Common", "cert_tbi2", csr, bigacme.cert.ValidationMethod.HTTP01
+    )
+    cert_tbi2.cert = _generate_certificate(-999_700, 9_123_200)
     cert_tbi2.status = bigacme.cert.Status.TO_BE_INSTALLED
     cert_tbi2.save()
 
@@ -90,7 +98,7 @@ def test_get_certs_that_need_action():
     cert_tbnothin = bigacme.cert.Certificate.new(
         "Common", "cert_tbnothin", csr, bigacme.cert.ValidationMethod.HTTP01
     )
-    cert_tbnothin.cert = _generate_certificate(-29123200, 29123200)
+    cert_tbnothin.cert = _generate_certificate(-29_123_200, 29_123_200)
     cert_tbnothin.mark_as_installed()
 
     # random file in folder
@@ -110,22 +118,22 @@ def test_get_certs_that_need_action():
 
 def test_cert_about_to_expire():
     """Tests if a certificate about to expires is detected"""
-    cert = _generate_certificate(-10800, 432000)
+    cert = _generate_certificate(-10800, 432_000)
     not_after_str, _ = bigacme.cert._get_cert_dates(cert)
     assert bigacme.cert._check_if_cert_about_to_expire(not_after_str, 14)
 
 
 def test_cert_not_about_to_expire():
     """Tests if a certificate not about to expire is not detected"""
-    cert = _generate_certificate(-10800, 15552000)
+    cert = _generate_certificate(-10800, 15_552_000)
     not_after_str, _ = bigacme.cert._get_cert_dates(cert)
     assert not bigacme.cert._check_if_cert_about_to_expire(not_after_str, 14)
 
 
 def test_get_cert_dates():
-    cert = _generate_certificate(-10800, 15552000)
+    cert = _generate_certificate(-10800, 15_552_000)
     actual_nva, actual_nvb = bigacme.cert._get_cert_dates(cert)
-    expected_nva = (datetime.today().utcnow() + timedelta(seconds=15552000)).strftime(
+    expected_nva = (datetime.today().utcnow() + timedelta(seconds=15_552_000)).strftime(
         "%Y-%m-%dT%H:%M:%S"
     )
     expected_nvb = (datetime.today().utcnow() + timedelta(seconds=-10800)).strftime(
@@ -136,7 +144,7 @@ def test_get_cert_dates():
 
 
 def test_delete_expired_backups():
-    cert = _generate_certificate(-10800, 15552000)
+    cert = _generate_certificate(-10800, 15_552_000)
     expired_cert = _generate_certificate(-10800, -10)
     with open("./cert/backup/cert", "w") as open_file:
         open_file.write(cert)
@@ -188,7 +196,10 @@ def test_get_without_validation_method():
     """Tests that a json withouth validation method fallbacks to http-01"""
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
     cert = bigacme.cert.Certificate.new(
-        "Partition", "test_get_without_validation_method", csr, bigacme.cert.ValidationMethod.DNS01
+        "Partition",
+        "test_get_without_validation_method",
+        csr,
+        bigacme.cert.ValidationMethod.DNS01,
     )
     cert.save()
     with open(cert.path, "r+") as json_bytes:
@@ -231,13 +242,15 @@ def test_mark_as_installed():
 
 def test_renew():
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
-    cert = bigacme.cert.Certificate.new("Common", "test_renew", csr, bigacme.cert.ValidationMethod.HTTP01)
-    org_cert = _generate_certificate(0, 1555200)
-    org_chain = _generate_certificate(0, 1555200)
+    cert = bigacme.cert.Certificate.new(
+        "Common", "test_renew", csr, bigacme.cert.ValidationMethod.HTTP01
+    )
+    org_cert = _generate_certificate(0, 1_555_200)
+    org_chain = _generate_certificate(0, 1_555_200)
     org_cert_and_chain = org_cert + org_chain
     cert.cert = org_cert_and_chain
-    new_cert = _generate_certificate(0, 1555200)
-    new_chain = _generate_certificate(0, 1555200)
+    new_cert = _generate_certificate(0, 1_555_200)
+    new_chain = _generate_certificate(0, 1_555_200)
     new_cert_and_chain = new_cert + new_chain
     cert.renew(new_cert_and_chain)
     assert os.path.isfile("./cert/backup/Common_test_renew.cer")
@@ -246,24 +259,30 @@ def test_renew():
 
 def test_up_for_installation():
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
-    cert = bigacme.cert.Certificate.new("Common", "test_old_enough", csr, bigacme.cert.ValidationMethod.HTTP01)
-    cert.cert = _generate_certificate(-1980000, 4320000)
+    cert = bigacme.cert.Certificate.new(
+        "Common", "test_old_enough", csr, bigacme.cert.ValidationMethod.HTTP01
+    )
+    cert.cert = _generate_certificate(-1_980_000, 4_320_000)
     cert.status = bigacme.cert.Status.TO_BE_INSTALLED
     assert cert.up_for_installation(13)
 
 
 def test_not_up_for_installation_not_old_enough():
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
-    cert = bigacme.cert.Certificate.new("Common", "test_old_enough", csr, bigacme.cert.ValidationMethod.HTTP01)
-    cert.cert = _generate_certificate(0, 4320000)
+    cert = bigacme.cert.Certificate.new(
+        "Common", "test_old_enough", csr, bigacme.cert.ValidationMethod.HTTP01
+    )
+    cert.cert = _generate_certificate(0, 4_320_000)
     cert.status = bigacme.cert.Status.TO_BE_INSTALLED
     assert not cert.up_for_installation(14)
 
 
 def test_not_up_for_installation_wrong_status():
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
-    cert = bigacme.cert.Certificate.new("Common", "test_old_enough", csr, bigacme.cert.ValidationMethod.HTTP01)
-    cert.cert = _generate_certificate(-1980000, 4320000)
+    cert = bigacme.cert.Certificate.new(
+        "Common", "test_old_enough", csr, bigacme.cert.ValidationMethod.HTTP01
+    )
+    cert.cert = _generate_certificate(-1_980_000, 4_320_000)
     cert.status = bigacme.cert.Status.INSTALLED
     assert not cert.up_for_installation(13)
 
@@ -273,7 +292,7 @@ def test_up_for_renewal():
     cert = bigacme.cert.Certificate.new(
         "Common", "test_about_to_expire", csr, bigacme.cert.ValidationMethod.HTTP01
     )
-    cert.cert = _generate_certificate(-10800, 432000)
+    cert.cert = _generate_certificate(-10800, 432_000)
     assert cert.up_for_renewal(14)
 
 
@@ -282,7 +301,7 @@ def test_not_up_for_renewal():
     cert = bigacme.cert.Certificate.new(
         "Common", "test_not_about_to_expire", csr, bigacme.cert.ValidationMethod.HTTP01
     )
-    cert.cert = _generate_certificate(-10800, 432000000)
+    cert.cert = _generate_certificate(-10800, 432_000_000)
     assert not cert.up_for_renewal(14)
 
 
@@ -298,7 +317,10 @@ def test_save_when_owned_by_another_user(opt_user):
         pytest.skip("Not running as root")
     csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
     cert = bigacme.cert.Certificate.new(
-        "Common", "test_save_when_owned_by_another_user", csr, bigacme.cert.ValidationMethod.HTTP01
+        "Common",
+        "test_save_when_owned_by_another_user",
+        csr,
+        bigacme.cert.ValidationMethod.HTTP01,
     )
     cert.save()
     uid = pwd.getpwnam(opt_user).pw_uid
