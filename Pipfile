@@ -4,7 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-"e1839a8" = {path = ".", editable = true}
+e1839a8 = {path = ".",editable = true}
+attrs = "*"
 
 [dev-packages]
 pylint = "*"
@@ -16,7 +17,6 @@ mypy = "*"
 
 [requires]
 python_version = "3.6"
-
 
 [scripts]
 tests = "bash -c 'py.test --lb $LB --pass $PASS'"
