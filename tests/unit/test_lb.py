@@ -159,8 +159,7 @@ def test_create_from_config_standalone(mock_bigsuds):
 
 def test_upload_certificate_access_denied():
     bigip = mock.MagicMock()
-    fault = mock.MagicMock()
-    fault.faultstring = "Access Denied:"
+    fault = mock.MagicMock(faultstring="Access Denied:")
     bigip.Management.KeyCertificate.certificate_import_from_pem.side_effect = ServerError(
         fault, "<document></document>"
     )
@@ -171,10 +170,21 @@ def test_upload_certificate_access_denied():
 
 def test_upload_certificate_weird_error():
     bigip = mock.MagicMock()
-    fault = mock.MagicMock()
-    fault.faultstring = "Access Denied:"
-    bigip.Management.KeyCertificate.certificate_import_from_pem.side_effect = EOFError()
-
+    fault = mock.MagicMock(faultstring="Computer says no!")
+    bigip.Management.KeyCertificate.certificate_import_from_pem.side_effect = ServerError(
+        fault, "<document></document>"
+    )
     lb = bigacme.lb.LoadBalancer(bigip, "Partition", "Datagroup")
-    with pytest.raises(EOFError):
+    with pytest.raises(ServerError):
         lb.upload_certificate("Patition2", "Name", "CSR")
+
+
+def test_send_challenge_weird_error():
+    bigip = mock.MagicMock()
+    fault = mock.MagicMock(faultstring="Computer says no!")
+    bigip.LocalLB.Class.add_string_class_member.side_effect = ServerError(
+        fault, "<document></document>"
+    )
+    lb = bigacme.lb.LoadBalancer(bigip, "Partition", "Datagroup")
+    with pytest.raises(ServerError):
+        lb.send_challenge("domain", "path", "string")

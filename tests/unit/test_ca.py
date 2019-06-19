@@ -189,6 +189,48 @@ class TestGetChallengesFromOrder:
                 order, ValidationMethod.HTTP01
             )
 
+    def test_unexpected_status_for_desired_challenge(self, mocked_ca):
+
+        authz1_chall1 = MagicMock(typ="http-01", status=messages.STATUS_PENDING)
+        authz1_chall2 = MagicMock(typ="dns-01", status=messages.STATUS_INVALID)
+        authz1_chall3 = MagicMock(typ="what-01", status=messages.STATUS_PENDING)
+
+        pending_autz1 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz1_chall1, authz1_chall2, authz1_chall3],
+            }
+        )
+
+        order = MagicMock(authorizations=[pending_autz1])
+
+        with pytest.raises(CAError):
+            challenges_to_be_solved = mocked_ca.get_challenges_to_solve_from_order(
+                order, ValidationMethod.DNS01
+            )
+
+    def test_unexpected_status_for_other_challenge(self, mocked_ca):
+
+        authz1_chall1 = MagicMock(typ="http-01", status=messages.STATUS_PENDING)
+        authz1_chall2 = MagicMock(typ="dns-01", status=messages.STATUS_PENDING)
+        authz1_chall3 = MagicMock(typ="what-01", status=messages.STATUS_INVALID)
+
+        pending_autz1 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz1_chall1, authz1_chall2, authz1_chall3],
+            }
+        )
+
+        order = MagicMock(authorizations=[pending_autz1])
+
+        with mock.patch("bigacme.ca.ChallengeToBeSolved", new=DummyChallengeToBeSolved):
+            challenges_to_be_solved = mocked_ca.get_challenges_to_solve_from_order(
+                order, ValidationMethod.HTTP01
+            )
+
+        assert challenges_to_be_solved == [authz1_chall1]
+
 
 def test_ChallengeToBeSolved():
     challenge = MagicMock()

@@ -3,6 +3,7 @@ import pwd
 import json
 import shutil
 import tempfile
+from unittest.mock import MagicMock
 from pathlib import Path
 from collections import namedtuple
 from datetime import datetime, timedelta
@@ -60,6 +61,12 @@ def _generate_csr(cn, san):
     return OpenSSL.crypto.dump_certificate_request(
         OpenSSL.crypto.FILETYPE_PEM, req
     ).decode()
+
+
+def test_unknown_validationmethod_enum():
+    with pytest.raises(ValueError) as error:
+        cert_enum = bigacme.cert.ValidationMethod.from_string("what-01")
+    assert str(error.value) == "'what-01' not in enum"
 
 
 def test_get_certs_that_need_action():
@@ -303,6 +310,20 @@ def test_not_up_for_renewal():
     )
     cert.cert = _generate_certificate(-10800, 432_000_000)
     assert not cert.up_for_renewal(14)
+
+
+def test_save_cert_weird_error():
+    csr = _generate_csr("common-name", b"DNS:san1,DNS:san2")
+    cert = bigacme.cert.Certificate.new(
+        "Common",
+        "test_save_when_owned_by_another_user",
+        csr,
+        bigacme.cert.ValidationMethod.HTTP01,
+    )
+    cert.path = MagicMock()
+    cert.path.write_text.side_effect = IOError
+    with pytest.raises(IOError):
+        cert.save()
 
 
 def test_save_when_owned_by_another_user(opt_user):
