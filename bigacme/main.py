@@ -163,7 +163,7 @@ def new_cert(partition, csrname, dns, configuration):
         csrname,
         partition,
     )
-    bigip = lb.LoadBalancer(configuration)
+    bigip = lb.LoadBalancer.create_from_config(configuration)
 
     if dns:
         try:
@@ -225,7 +225,7 @@ def new_cert(partition, csrname, dns, configuration):
 
     certobj = cert.Certificate.new(partition, csrname, csr, chall_typ)
     click.echo("Getting a new certificate from the CA. This may take a while...")
-    acme_ca = ca.CertificateAuthority(configuration)
+    acme_ca = ca.CertificateAuthority.create_from_config(configuration)
 
     try:
         with click_spinner.spinner():
@@ -272,8 +272,8 @@ def renew(configuration):
     renewals, certs_to_be_installed = cert.get_certs_that_need_action(configuration)
 
     if renewals or certs_to_be_installed:
-        acme_ca = ca.CertificateAuthority(configuration)
-        bigip = lb.LoadBalancer(configuration)
+        acme_ca = ca.CertificateAuthority.create_from_config(configuration)
+        bigip = lb.LoadBalancer.create_from_config(configuration)
 
     dns_plugin = None
     for renewal in renewals:
@@ -411,7 +411,7 @@ def revoke(partition, csrname, configuration):
         choice = input().replace(")", "")
     reason = int(choice)
 
-    acme_ca = ca.CertificateAuthority(configuration)
+    acme_ca = ca.CertificateAuthority.create_from_config(configuration)
     acme_ca.revoke_certifciate(certificate.cert, reason)
     certificate.delete()
     logger.info(
@@ -432,7 +432,7 @@ def test(configuration):
     all_good = True
 
     try:
-        lb.LoadBalancer(configuration)
+        lb.LoadBalancer.create_from_config(configuration)
     except lb.LoadBalancerError as error:
         click.secho(
             f"Could not connect to the load balancer: {error}", fg="red", err=True
@@ -443,7 +443,7 @@ def test(configuration):
         click.secho("The connection to the load balancer was successfull.", fg="green")
 
     try:
-        ca.CertificateAuthority(configuration)
+        ca.CertificateAuthority.create_from_config(configuration)
     except ca.CAError as error:
         click.secho(f"Could not connect to the CA: {error}", fg="red", err=True)
         logger.exception("Could not connect to the CA:")
@@ -466,7 +466,7 @@ def print_version():
 @handle_exceptions
 def register(configuration):
     """Genereates a account key, and registeres with the specified CA"""
-    acme_ca = ca.CertificateAuthority(configuration)
+    acme_ca = ca.CertificateAuthority.create_from_config(configuration)
     if acme_ca.key:
         click.secho(
             "Account config already exists - already registered?", fg="yellow", err=True
@@ -580,17 +580,21 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
     logger.debug("Getting the challenges from the CA")
 
     order = acme_ca.order_new_cert(csr.csr)
-    challenges = acme_ca.get_challenges_from_order(order, csr.validation_method)
+    challenges = acme_ca.get_challenges_to_solve_from_order(
+        order, csr.validation_method
+    )
 
     if csr.validation_method == cert.ValidationMethod.HTTP01:
         for challenge in challenges:
             bigip.send_challenge(
-                challenge.domain, challenge.challenge.path, challenge.validation
+                challenge.identifier, challenge.challenge.path, challenge.validation
             )
     elif csr.validation_method == cert.ValidationMethod.DNS01:
         for challenge in challenges:
-            record_name = challenge.challenge.validation_domain_name(challenge.domain)
-            dns_plugin.perform(challenge.domain, record_name, challenge.validation)
+            record_name = challenge.challenge.validation_domain_name(
+                challenge.identifier
+            )
+            dns_plugin.perform(challenge.identifier, record_name, challenge.validation)
         dns_plugin.finish_perform()
     else:
         raise ca.UnknownValidationType(
@@ -604,13 +608,15 @@ def _get_new_cert(acme_ca, bigip, csr, dns_plugin):
         # cleanup
         if csr.validation_method == cert.ValidationMethod.HTTP01:
             for challenge in challenges:
-                bigip.remove_challenge(challenge.domain, challenge.challenge.path)
+                bigip.remove_challenge(challenge.identifier, challenge.challenge.path)
         elif csr.validation_method == cert.ValidationMethod.DNS01:
             for challenge in challenges:
                 record_name = challenge.challenge.validation_domain_name(
-                    challenge.domain
+                    challenge.identifier
                 )
-                dns_plugin.cleanup(challenge.domain, record_name, challenge.validation)
+                dns_plugin.cleanup(
+                    challenge.identifier, record_name, challenge.validation
+                )
             dns_plugin.finish_cleanup()
 
     return certificate

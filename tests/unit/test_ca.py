@@ -1,96 +1,206 @@
 """Tests for ca.py"""
 import pytest
 from bigacme import ca
+from bigacme.ca import CAError, NoDesiredChallenge
+from bigacme.cert import ValidationMethod
 from acme import messages
 from acme import challenges
 from acme import errors as acme_errors
 
+from unittest import mock
 from unittest.mock import MagicMock
 
 
-def test_return_desired_challenges():
-    """_return_desired_challenges should return the challenges of the spesified type"""
-    identifier = messages.Identifier(
-        typ=messages.IdentifierType("dns"), value="dummydomene"
-    )
-    dns_chall = messages.ChallengeBody(chall=challenges.DNS01(), status="pending")
-    http_chal = messages.ChallengeBody(chall=challenges.HTTP01(), status="pending")
-    authz = messages.Authorization(
-        challenges=(dns_chall, http_chal), identifier=identifier
-    )
-    authzr = [messages.AuthorizationResource(body=authz)]
-    desired_chall = ca._return_desired_challenges(authzr, "http-01")
-    assert desired_chall[0][0] == "dummydomene"
-    assert desired_chall[0][1] == http_chal
+@pytest.fixture()
+def mocked_ca():
+    acme_ca = ca.CertificateAuthority(None, None, None, None)
+    acme_ca.client = MagicMock()
+    acme_ca._create_account_key()
+    return acme_ca
 
 
-def test_return_desired_challenges_several_domains():
-    """
-    _return_desired_challenges should return the challenges of the spesified type
-    for all the domains
-    """
-    identifier1 = messages.Identifier(
-        typ=messages.IdentifierType("dns"), value="domene1.no"
-    )
-    dns_chall1 = messages.ChallengeBody(chall=challenges.DNS01(), status="pending")
-    http_chall1 = messages.ChallengeBody(chall=challenges.HTTP01(), status="pending")
-    authz1 = messages.Authorization(
-        challenges=(dns_chall1, http_chall1), identifier=identifier1
-    )
-
-    identifier2 = messages.Identifier(
-        typ=messages.IdentifierType("dns"), value="domene2.no"
-    )
-    dns_chall2 = messages.ChallengeBody(chall=challenges.DNS01(), status="pending")
-    http_chall2 = messages.ChallengeBody(chall=challenges.HTTP01(), status="pending")
-    authz2 = messages.Authorization(
-        challenges=(dns_chall2, http_chall2), identifier=identifier2
-    )
-
-    authzr = [
-        messages.AuthorizationResource(body=authz1),
-        messages.AuthorizationResource(body=authz2),
-    ]
-
-    desired_chall = ca._return_desired_challenges(authzr, "dns-01")
-    assert desired_chall[0][0] == "domene1.no"
-    assert desired_chall[0][1] == dns_chall1
-    assert desired_chall[1][0] == "domene2.no"
-    assert desired_chall[1][1] == dns_chall2
+class DummyChallengeToBeSolved:
+    @classmethod
+    def create(cls, identifier, challenge, key):
+        return challenge
 
 
-def test_return_desired_challenges_missing_for_one():
-    """
-    If the specified challenge type is missing for one of the domains,
-    _return_desired_challenges should throw an exception
-    """
-    identifier1 = messages.Identifier(
-        typ=messages.IdentifierType("dns"), value="domene1.no"
-    )
-    http_chall1 = messages.ChallengeBody(chall=challenges.HTTP01(), status="pending")
-    weird_chall1 = messages.ChallengeBody(
-        chall=challenges.UnrecognizedChallenge, status="pending"
-    )
-    authz1 = messages.Authorization(
-        challenges=(http_chall1, weird_chall1), identifier=identifier1
-    )
+class TestGetChallengesFromOrder:
+    def test_normal_case(self, mocked_ca):
 
-    identifier2 = messages.Identifier(
-        typ=messages.IdentifierType("dns"), value="domene2.no"
-    )
-    dns_chall2 = messages.ChallengeBody(chall=challenges.DNS01(), status="pending")
-    http_chall2 = messages.ChallengeBody(chall=challenges.HTTP01(), status="pending")
-    authz2 = messages.Authorization(
-        challenges=(dns_chall2, http_chall2), identifier=identifier2
-    )
+        authz1_chall1 = MagicMock(typ="http-01", status=messages.STATUS_PENDING)
+        authz1_chall2 = MagicMock(typ="dns-01", status=messages.STATUS_PENDING)
+        authz1_chall3 = MagicMock(typ="what-01", status=messages.STATUS_PENDING)
 
-    authzr = [
-        messages.AuthorizationResource(body=authz1),
-        messages.AuthorizationResource(body=authz2),
-    ]
+        pending_autz1 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz1_chall1, authz1_chall2, authz1_chall3],
+            }
+        )
 
-    with pytest.raises(ca.NoDesiredChallenge):
-        ca._return_desired_challenges(authzr, "dns-01")
+        authz2_chall1 = MagicMock(typ="http-01", status=messages.STATUS_PENDING)
+        authz2_chall2 = MagicMock(typ="dns-01", status=messages.STATUS_PENDING)
+        authz2_chall3 = MagicMock(typ="what-01", status=messages.STATUS_PENDING)
+
+        pending_autz2 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz2_chall1, authz2_chall2, authz2_chall3],
+            }
+        )
+
+        order = MagicMock(authorizations=[pending_autz1, pending_autz2])
+
+        with mock.patch("bigacme.ca.ChallengeToBeSolved", new=DummyChallengeToBeSolved):
+            challenges_to_be_solved = mocked_ca.get_challenges_to_solve_from_order(
+                order, ValidationMethod.HTTP01
+            )
+
+        assert authz1_chall1 and authz2_chall1 in challenges_to_be_solved
+
+    def test_normal_case_with_dns(self, mocked_ca):
+
+        authz1_chall1 = MagicMock(typ="http-01", status=messages.STATUS_PENDING)
+        authz1_chall2 = MagicMock(typ="dns-01", status=messages.STATUS_PENDING)
+        authz1_chall3 = MagicMock(typ="what-01", status=messages.STATUS_PENDING)
+
+        pending_autz1 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz1_chall1, authz1_chall2, authz1_chall3],
+            }
+        )
+
+        authz2_chall1 = MagicMock(typ="http-01", status=messages.STATUS_PENDING)
+        authz2_chall2 = MagicMock(typ="dns-01", status=messages.STATUS_PENDING)
+        authz2_chall3 = MagicMock(typ="what-01", status=messages.STATUS_PENDING)
+
+        pending_autz2 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz2_chall1, authz2_chall2, authz2_chall3],
+            }
+        )
+
+        order = MagicMock(authorizations=[pending_autz1, pending_autz2])
+
+        with mock.patch("bigacme.ca.ChallengeToBeSolved", new=DummyChallengeToBeSolved):
+            challenges_to_be_solved = mocked_ca.get_challenges_to_solve_from_order(
+                order, ValidationMethod.DNS01
+            )
+
+        assert authz1_chall2 and authz2_chall2 in challenges_to_be_solved
+
+    def test_no_desired_challenge(self, mocked_ca):
+
+        authz1_chall1 = MagicMock(typ="dns-01", status=messages.STATUS_PENDING)
+        authz1_chall2 = MagicMock(typ="what-01", status=messages.STATUS_PENDING)
+
+        pending_autz1 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz1_chall1, authz1_chall2],
+            }
+        )
+
+        authz2_chall1 = MagicMock(typ="dns-01", status=messages.STATUS_PENDING)
+        authz2_chall2 = MagicMock(typ="what-01", status=messages.STATUS_PENDING)
+
+        pending_autz2 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz2_chall1, authz2_chall2],
+            }
+        )
+
+        order = MagicMock(authorizations=[pending_autz1, pending_autz2])
+
+        with pytest.raises(NoDesiredChallenge):
+            challenges_to_be_solved = mocked_ca.get_challenges_to_solve_from_order(
+                order, ValidationMethod.HTTP01
+            )
+
+    def test_all_challenges_already_valid(self, mocked_ca):
+
+        authz1_chall1 = MagicMock(typ="http-01", status=messages.STATUS_VALID)
+
+        pending_autz1 = MagicMock(
+            **{"body.status": messages.STATUS_VALID, "body.challenges": [authz1_chall1]}
+        )
+
+        authz2_chall1 = MagicMock(typ="dns-01", status=messages.STATUS_VALID)
+
+        pending_autz2 = MagicMock(
+            **{"body.status": messages.STATUS_VALID, "body.challenges": [authz2_chall1]}
+        )
+
+        order = MagicMock(authorizations=[pending_autz1, pending_autz2])
+
+        challenges_to_be_solved = mocked_ca.get_challenges_to_solve_from_order(
+            order, ValidationMethod.DNS01
+        )
+
+        assert challenges_to_be_solved == []
+
+    def test_some_valid_some_pending(self, mocked_ca):
+
+        authz1_chall1 = MagicMock(typ="http-01", status=messages.STATUS_PENDING)
+        authz1_chall2 = MagicMock(typ="dns-01", status=messages.STATUS_PENDING)
+        authz1_chall3 = MagicMock(typ="what-01", status=messages.STATUS_PENDING)
+
+        pending_autz1 = MagicMock(
+            **{
+                "body.status": messages.STATUS_PENDING,
+                "body.challenges": [authz1_chall1, authz1_chall2, authz1_chall3],
+            }
+        )
+
+        authz2_chall1 = MagicMock(typ="dns-01", status=messages.STATUS_VALID)
+
+        pending_autz2 = MagicMock(
+            **{"body.status": messages.STATUS_VALID, "body.challenges": [authz2_chall1]}
+        )
+
+        order = MagicMock(authorizations=[pending_autz1, pending_autz2])
+
+        with mock.patch("bigacme.ca.ChallengeToBeSolved", new=DummyChallengeToBeSolved):
+            challenges_to_be_solved = mocked_ca.get_challenges_to_solve_from_order(
+                order, ValidationMethod.HTTP01
+            )
+
+        assert challenges_to_be_solved == [authz1_chall1]
+
+    def test_invalid_authz(self, mocked_ca):
+
+        authz1_chall1 = MagicMock(typ="http-01", status=messages.STATUS_INVALID)
+
+        pending_autz1 = MagicMock(
+            **{
+                "body.status": messages.STATUS_INVALID,
+                "body.challenges": [authz1_chall1],
+            }
+        )
+
+        order = MagicMock(authorizations=[pending_autz1])
+
+        with pytest.raises(CAError):
+            challenges_to_be_solved = mocked_ca.get_challenges_to_solve_from_order(
+                order, ValidationMethod.HTTP01
+            )
+
+
+def test_ChallengeToBeSolved():
+    challenge = MagicMock()
+    challenge.response_and_validation.side_effect = [("response", "validation")]
+    ctbs = ca.ChallengeToBeSolved.create("identifier", challenge, "key")
+
+    assert ctbs.challenge == challenge
+    assert ctbs.identifier == "identifier"
+    assert ctbs.response == "response"
+    assert ctbs.validation == "validation"
+
+    challenge.response_and_validation.assert_called_once_with("key")
 
 
 def test_validate_cert_chain_vaild_chain():

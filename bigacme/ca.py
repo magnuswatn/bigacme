@@ -7,6 +7,9 @@ import datetime
 from pathlib import Path
 from collections import namedtuple
 
+import attr
+import OpenSSL
+
 import josepy as jose
 from acme import client
 from acme import messages
@@ -14,70 +17,83 @@ from acme import errors as acme_errors
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-import OpenSSL
-
 logger = logging.getLogger(__name__)
+
+
+USER_AGENT = "bigacme (https://github.com/magnuswatn/bigacme/)"
+CERT_TIMEOUT = 90
 
 
 class CAError(Exception):
     """Superclass for all ca exceptions."""
 
-    pass
-
 
 class CouldNotRetrieveDirectoryFromCA(CAError):
     """Could not retrieve the direcotry from the CA"""
-
-    pass
 
 
 class NoDesiredChallenge(CAError):
     """Raised when the CA did not provides the desired challenge for the domain"""
 
-    pass
-
 
 class GetCertificateFailedError(CAError):
     """Raised when it was not possible to get the certificate"""
-
-    pass
 
 
 class UnknownValidationType(CAError):
     """Raised when the validation type is not recognized"""
 
-    pass
-
 
 class AccountInfoExistsError(CAError):
     """Raised when the account file already exists."""
-
-    pass
 
 
 class ReceivedInvalidCertificateError(CAError):
     """Raised when the certificate returned from the CA as malformed."""
 
-    pass
+
+@attr.s
+class ChallengeToBeSolved:
+    """
+    A challenge that needs to be solved to retrive
+    a cert for the specified domain.
+    """
+
+    identifier = attr.ib()
+    challenge = attr.ib()
+    validation = attr.ib()
+    response = attr.ib()
+
+    @classmethod
+    def create(cls, identifier, challenge, key):
+        response, validation = challenge.response_and_validation(key)
+        return cls(identifier, challenge, validation, response)
 
 
+@attr.s
 class CertificateAuthority:
     """Represent a Certificate Authority"""
 
-    def __init__(self, configuration):
-        self.account_file = Path(configuration.cm_account)
-        user_agent = "bigacme (https://github.com/magnuswatn/bigacme/)"
+    kid = attr.ib()
+    key = attr.ib()
+    client = attr.ib()
+    account_file = attr.ib()
+
+    @classmethod
+    def create_from_config(cls, configuration):
+        account_file = Path(configuration.cm_account)
 
         try:
-            self.load_account()
+            account_info = json.loads(account_file.read_text())
         except FileNotFoundError:
-            # For registration and testing
-            self.kid, self.key = None, None
+            # For registration and testing.
+            kid, key = None, None
+        else:
+            kid = account_info["kid"]
+            key = jose.JWKRSA.from_json(account_info["key"])
 
         network = client.ClientNetwork(
-            self.key,
-            user_agent=user_agent,
-            account=messages.RegistrationResource(uri=self.kid),
+            key, user_agent=USER_AGENT, account=messages.RegistrationResource(uri=kid)
         )
 
         network.session.proxies = {"https": configuration.ca_proxy}
@@ -89,15 +105,10 @@ class CertificateAuthority:
         except ValueError as error:
             raise CouldNotRetrieveDirectoryFromCA(error) from error
 
-        self.client = client.ClientV2(directory, network)
+        acme_client = client.ClientV2(directory, network)
+        return cls(kid, key, acme_client, account_file)
 
-    def load_account(self):
-        """Loads the account information (key and kid) from disk"""
-        account_info = json.loads(self.account_file.read_text())
-        self.kid = account_info["kid"]
-        self.key = jose.JWKRSA.from_json(account_info["key"])
-
-    def create_account_key(self):
+    def _create_account_key(self):
         """Creates an account key"""
         logger.debug("Generating account key")
         private_key = rsa.generate_private_key(
@@ -106,10 +117,10 @@ class CertificateAuthority:
         self.key = jose.JWKRSA(key=private_key)
         self.client.net.key = self.key
 
-    def save_account(self):
+    def _save_account(self):
         """Saves the account key and id to the file specified in the config"""
         if self.account_file.exists():
-            raise AccountInfoExistsError
+            raise AccountInfoExistsError()
 
         account_info = {"kid": self.kid, "key": self.key.to_json()}
         account_json = json.dumps(account_info, indent=4, sort_keys=True)
@@ -121,30 +132,65 @@ class CertificateAuthority:
 
     def register(self, mail: str) -> None:
         """Registers an account with the ca"""
-        self.create_account_key()
+        self._create_account_key()
         # The user has already agreed to the tos in main.py
         new_regr = messages.NewRegistration.from_data(
             email=mail, terms_of_service_agreed=True
         )
         regr = self.client.new_account(new_regr)
         self.kid = regr.uri
-        self.save_account()
+        self._save_account()
         logger.info("Registered with the CA. Key ID: '%s'", self.kid)
 
     def order_new_cert(self, csr: str) -> messages.OrderResource:
         """Orders a new certificate"""
         return self.client.new_order(csr)
 
-    def get_challenges_from_order(self, order, validation_method):
-        """Returns the challenges for the specified validation method from the order"""
-        authz = order.authorizations
-        desired_challenges = _return_desired_challenges(authz, validation_method.value)
-        return self.return_tuple_from_challenges(desired_challenges)
+    def get_challenges_to_solve_from_order(self, order, validation_method):
+        """
+        Returns the challenges that needs to be solved from the order,
+        filtered by the specified validation method.
+        """
+        challenges_to_be_solved = []
+        for authz in order.authorizations:
+            if authz.body.status == messages.STATUS_VALID:
+                logger.debug(
+                    "Authorization '%s' for domain '%s' "
+                    "is already valid, so no need "
+                    "to solve a challenge for this authorization.",
+                    authz.uri,
+                    authz.body.identifier.value,
+                )
+                continue
+            elif authz.body.status != messages.STATUS_PENDING:
+                raise CAError(
+                    f"Unexpected status for authorization: {authz.body.status.name}"
+                )
+
+            for challenge in authz.body.challenges:
+                if challenge.typ == validation_method.value:
+                    if challenge.status != messages.STATUS_PENDING:
+                        raise CAError(
+                            f"Unexpected status for challenge: {challenge.status}"
+                        )
+                    challenges_to_be_solved.append(
+                        ChallengeToBeSolved.create(
+                            authz.body.identifier.value, challenge, self.key
+                        )
+                    )
+                    break
+            else:
+                raise NoDesiredChallenge(
+                    f"The CA didn't provide a '{validation_method.value}' challenge "
+                    f"for domain '{authz.body.identifier.value}'. It provided: "
+                    f"{', '.join([chall.typ for chall in authz.body.challenges])}."
+                )
+        return challenges_to_be_solved
 
     def answer_challenges(self, challenges):
         """Tells the CA that the challenges has been solved"""
         for challenge in challenges:
-            logger.debug("Answering challenge for the domain: '%s'", challenge.domain)
+            logger.debug("Answering challenge for '%s'", challenge.identifier)
             self.client.answer_challenge(challenge.challenge, challenge.response)
 
     def revoke_certifciate(self, cert_pem: str, reason: int) -> None:
@@ -156,7 +202,7 @@ class CertificateAuthority:
     def get_certificate_from_ca(self, order: messages.OrderResource) -> str:
         """Sends the CSR to the CA and gets a signed certificate in return"""
         logger.debug("Getting the certificate from the CA")
-        deadline = datetime.datetime.now() + datetime.timedelta(seconds=90)
+        deadline = datetime.datetime.now() + datetime.timedelta(seconds=CERT_TIMEOUT)
         try:
             order = self.client.poll_and_finalize(order, deadline=deadline)
         except acme_errors.ValidationError as error:
@@ -180,36 +226,6 @@ class CertificateAuthority:
         _validate_cert_chain(order.fullchain_pem)
 
         return order.fullchain_pem
-
-    def return_tuple_from_challenges(self, challenges):
-        """Returns tuples with the needed info from the challenges (incl. signed validation)"""
-        challtp = namedtuple("Authz", ["domain", "validation", "response", "challenge"])
-        tuples = []
-        for challenge in challenges:
-            # challenge is a tuple with the domain name and the challenge
-            response, validation = challenge[1].response_and_validation(self.key)
-            tuples += [
-                challtp(
-                    domain=challenge[0],
-                    validation=validation,
-                    response=response,
-                    challenge=challenge[1],
-                )
-            ]
-        return tuples
-
-
-def _return_desired_challenges(challenges, typ):
-    desired_challenges = []
-    for challenge in challenges:
-        desired_challenge = [ch for ch in challenge.body.challenges if ch.typ == typ]
-        if desired_challenge:
-            desired_challenges += [
-                (challenge.body.identifier.value, desired_challenge[0])
-            ]
-        else:
-            raise NoDesiredChallenge(f"The CA didn't provide a '{typ}' challenge")
-    return desired_challenges
 
 
 def _validate_cert_chain(pem_cert: str) -> None:

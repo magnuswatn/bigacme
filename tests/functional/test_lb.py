@@ -60,7 +60,7 @@ def lb(opt_username, opt_password, opt_lb, opt_datagroup, opt_partition):
         lb_dg=opt_datagroup,
         lb_dg_partition=opt_partition,
     )
-    return bigacme.lb.LoadBalancer(config)
+    return bigacme.lb.LoadBalancer.create_from_config(config)
 
 
 @pytest.fixture(scope="module")
@@ -146,7 +146,7 @@ def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
         lb_dg=opt_datagroup,
         lb_dg_partition=opt_partition,
     )
-    bigip = bigacme.lb.LoadBalancer(config)
+    bigip = bigacme.lb.LoadBalancer.create_from_config(config)
 
     with pytest.raises(bigacme.lb.AccessDeniedError):
         bigip.get_csr("bigacmeTestPartition", "anyName")
@@ -156,15 +156,15 @@ def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
 
 
 def test_upload_certificate(lb, opt_partition):
-    cert = _generate_certificate(0, 9999999)
+    cert = _generate_certificate(0, 9_999_999)
     lb.upload_certificate(opt_partition, "test_upload_certificate_certificate", [cert])
     # Should overwrite, so should not fail if uploaded again
-    cert2 = _generate_certificate(0, 9999999)
+    cert2 = _generate_certificate(0, 9_999_999)
     lb.upload_certificate(opt_partition, "test_upload_certificate_certificate", [cert2])
 
 
 def test_upload_certificate_nonexisting_partition(lb):
-    cert = _generate_certificate(0, 9999999)
+    cert = _generate_certificate(0, 9_999_999)
     with pytest.raises(bigacme.lb.PartitionNotFoundError):
         lb.upload_certificate(
             "NotAPartition", "test_upload_certificate_certificate", [cert]

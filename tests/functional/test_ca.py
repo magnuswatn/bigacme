@@ -42,11 +42,11 @@ def test_register_and_save_account(pebble):
         ca="https://localhost:14000/dir",
         ca_proxy=None,
     )
-    acme_ca = ca.CertificateAuthority(config)
+    acme_ca = ca.CertificateAuthority.create_from_config(config)
     assert acme_ca.key is None
     assert acme_ca.kid is None
 
-    acme_ca.create_account_key()
+    acme_ca._create_account_key()
     acme_ca.register("hei@hei.no")
 
     assert acme_ca.key is not None
@@ -54,7 +54,7 @@ def test_register_and_save_account(pebble):
 
     assert oct(os.stat("./config/account.json")[stat.ST_MODE]) == "0o100440"
     with pytest.raises(ca.AccountInfoExistsError):
-        acme_ca.save_account()
+        acme_ca._save_account()
     # TODO too specific
     assert b"GET /dir" in pebble.stdout.readline()
     assert b"HEAD /nonce-plz" in pebble.stdout.readline()

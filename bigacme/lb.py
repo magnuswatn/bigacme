@@ -1,5 +1,7 @@
 """Functions that interacts with the loadbalancer"""
 import logging
+
+import attr
 import bigsuds
 
 logger = logging.getLogger(__name__)
@@ -44,12 +46,18 @@ class NotFoundError(LoadBalancerError):
     pass
 
 
+@attr.s
 class LoadBalancer:
     """Represent the LoadBalancer"""
 
-    def __init__(self, config):
+    bigip = attr.ib()
+    partition = attr.ib()
+    datagroup = attr.ib()
+
+    @classmethod
+    def create_from_config(cls, config):
         """Connects to the Big-IP unit(s)"""
-        self.partition, self.datagroup = config.lb_dg_partition, config.lb_dg
+        partition, datagroup = config.lb_dg_partition, config.lb_dg
 
         lb1 = bigsuds.BIGIP(config.lb1, config.lb_user, config.lb_pwd, verify=True)
         if config.lb2:
@@ -58,16 +66,15 @@ class LoadBalancer:
             try:
                 if lb1.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
                     logger.debug("Using '%s' as active load balancer", config.lb1)
-                    self.bigip = lb1
-                    return
+                    return cls(lb1, partition, datagroup)
+
             except bigsuds.OperationFailed:
                 logger.exception("Could not get failover status from '%s'", config.lb1)
 
             try:
                 if lb2.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
                     logger.debug("Using '%s' as active load balancer", config.lb2)
-                    self.bigip = lb2
-                    return
+                    return cls(lb2, partition, datagroup)
             except bigsuds.OperationFailed:
                 logger.exception("Could not get failover status from '%s'", config.lb2)
 
@@ -82,7 +89,7 @@ class LoadBalancer:
                 lb1.System.SystemInfo.get_uptime()
             except bigsuds.OperationFailed as error:
                 raise CouldNotConnectToBalancerError(error) from error
-            self.bigip = lb1
+            return cls(lb1, partition, datagroup)
 
     def send_challenge(self, domain: str, path: str, string: str) -> None:
         """Sends the challenge to the Big-IP"""
@@ -136,14 +143,8 @@ class LoadBalancer:
         try:
             self.bigip.System.Session.set_active_folder(f"/{partition}")
         except bigsuds.ServerError as error:
-            logger.debug("Received error from the load balancer: %s", error)
+            self._handle_error_from_load_balancer(error)
 
-            if "folder not found" in error.fault.faultstring:
-                raise PartitionNotFoundError() from error
-            elif "Access Denied:" in error.fault.faultstring:
-                raise AccessDeniedError() from error
-            else:
-                raise
         try:
             pem_csr = self.bigip.Management.KeyCertificate.certificate_request_export_to_pem(
                 "MANAGEMENT_MODE_DEFAULT", [csrname]
@@ -151,37 +152,33 @@ class LoadBalancer:
                 0
             ]
         except bigsuds.ServerError as error:
-            logger.debug("Received error from the load balancer: %s", error)
+            self._handle_error_from_load_balancer(error)
 
-            if "Access Denied:" in error.fault.faultstring:
-                raise AccessDeniedError() from error
-            elif "Not Found" in error.fault.faultstring:
-                raise NotFoundError() from error
-            else:
-                raise
         return pem_csr
 
     def upload_certificate(self, partition: str, name: str, certificates: str) -> None:
         """Uploads a new certificate to the Big-IP"""
+
         try:
             self.bigip.System.Session.set_active_folder(f"/{partition}")
         except bigsuds.ServerError as error:
-            logger.debug("Received error from the load balancer: %s", error)
+            self._handle_error_from_load_balancer(error)
 
-            if "folder not found" in error.fault.faultstring:
-                raise PartitionNotFoundError() from error
-            elif "Access Denied:" in error.fault.faultstring:
-                raise AccessDeniedError() from error
-            else:
-                raise
         try:
             self.bigip.Management.KeyCertificate.certificate_import_from_pem(
                 "MANAGEMENT_MODE_DEFAULT", [name], [certificates], True
             )
         except bigsuds.ServerError as error:
-            logger.debug("Received error from the load balancer: %s", error)
+            self._handle_error_from_load_balancer(error)
 
-            if "Access Denied:" in error.fault.faultstring:
-                raise AccessDeniedError() from error
-            else:
-                raise
+    @staticmethod
+    def _handle_error_from_load_balancer(error):
+        logger.debug("Received error from the load balancer: %s", error)
+        if "folder not found" in error.fault.faultstring:
+            raise PartitionNotFoundError() from error
+        elif "Not Found" in error.fault.faultstring:
+            raise NotFoundError() from error
+        elif "Access Denied:" in error.fault.faultstring:
+            raise AccessDeniedError() from error
+        else:
+            raise
