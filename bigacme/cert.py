@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from datetime import datetime, timedelta
 
+import attr
 from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 
@@ -115,22 +116,43 @@ def delete_expired_backups():
             path.unlink()
 
 
+@attr.s
 class Certificate:
     """Represents a stored certificate + csr"""
 
-    def __init__(self, partition, name, **kwargs):
-        self.name, self.partition = name, partition
-        self.path = Path("cert", f"{partition}_{name}.json")
+    name = attr.ib()
+    partition = attr.ib()
+    path = attr.ib()
+    csr = attr.ib()
+    _cert = attr.ib()
+    status = attr.ib()
+    validation_method = attr.ib()
+    not_after = attr.ib()
+    not_before = attr.ib()
 
-        self.csr = kwargs.pop("csr", None)
-        self._cert = kwargs.pop("cert", None)
-        self.status = kwargs.pop("status", Status.NEW)
-        self.validation_method = kwargs.pop(
-            "validation_method", ValidationMethod.HTTP01
+    @classmethod
+    def create(cls, partition, name, **kwargs):
+        path = Path("cert", f"{partition}_{name}.json")
+
+        csr = kwargs.pop("csr", None)
+        cert = kwargs.pop("cert", None)
+        status = kwargs.pop("status", Status.NEW)
+        validation_method = kwargs.pop("validation_method", ValidationMethod.HTTP01)
+
+        not_after = kwargs.pop("not_after", datetime.fromtimestamp(0))
+        not_before = kwargs.pop("not_before", datetime.fromtimestamp(0))
+
+        return cls(
+            name,
+            partition,
+            path,
+            csr,
+            cert,
+            status,
+            validation_method,
+            not_after,
+            not_before,
         )
-
-        self.not_after = kwargs.pop("not_after", datetime.fromtimestamp(0))
-        self.not_before = kwargs.pop("not_before", datetime.fromtimestamp(0))
 
     @classmethod
     def load(cls, path):
@@ -157,12 +179,12 @@ class Certificate:
             }
         )
 
-        return cls(**loaded)
+        return cls.create(**loaded)
 
     @classmethod
     def new(cls, partition, name, csr, validation_method):
         """Creates a new Certificate object from a csr"""
-        return cls(partition, name, csr=csr, validation_method=validation_method)
+        return cls.create(partition, name, csr=csr, validation_method=validation_method)
 
     @classmethod
     def get(cls, partition, name):

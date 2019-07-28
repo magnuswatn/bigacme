@@ -252,11 +252,11 @@ def test_list_no_certs():
 @working_dir
 @existing_account
 def test_list_all_certs():
-    cert.Certificate("Common", "cert1").save()
-    cert.Certificate("Common", "cert2").save()
-    cert.Certificate("Common", "cert3").save()
-    cert.Certificate("Partition1", "cert").save()
-    cert.Certificate("Partition2", "cert").save()
+    cert.Certificate.create("Common", "cert1").save()
+    cert.Certificate.create("Common", "cert2").save()
+    cert.Certificate.create("Common", "cert3").save()
+    cert.Certificate.create("Partition1", "cert").save()
+    cert.Certificate.create("Partition2", "cert").save()
     cmd = subprocess.Popen(["bigacme", "list"], stdout=subprocess.PIPE)
     output = cmd.communicate()[0].decode()
     # five certs plus headers and separators is ten
@@ -266,11 +266,11 @@ def test_list_all_certs():
 @working_dir
 @existing_account
 def test_list_specific_partition():
-    cert.Certificate("Common", "cert1").save()
-    cert.Certificate("Common", "cert2").save()
-    cert.Certificate("Common", "cert3").save()
-    cert.Certificate("Partition1", "cert").save()
-    cert.Certificate("Partition2", "cert").save()
+    cert.Certificate.create("Common", "cert1").save()
+    cert.Certificate.create("Common", "cert2").save()
+    cert.Certificate.create("Common", "cert3").save()
+    cert.Certificate.create("Partition1", "cert").save()
+    cert.Certificate.create("Partition2", "cert").save()
     cmd = subprocess.Popen(["bigacme", "list", "Partition1"], stdout=subprocess.PIPE)
     output = cmd.communicate()[0].decode()
     # one certs plus headers and separators is six
@@ -325,7 +325,7 @@ def test_register_wrong_email(pebble):
 @use_pebble
 def test_revoke_abort(pebble):
     """If user regrets, we should abort"""
-    cert.Certificate("Common", "cert").save()
+    cert.Certificate.create("Common", "cert").save()
 
     # we must register first
     cmd = subprocess.Popen(

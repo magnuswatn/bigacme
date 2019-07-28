@@ -164,8 +164,8 @@ def test_delete_expired_backups():
     assert not os.path.isfile("./cert/backup/expired_cert")
 
 
-def test__init__certificate():
-    cert = bigacme.cert.Certificate("Partition", "Name")
+def test_create_certificate():
+    cert = bigacme.cert.Certificate.create("Partition", "Name")
     assert cert.partition == "Partition"
     assert cert.name == "Name"
     assert cert.status == bigacme.cert.Status.NEW
