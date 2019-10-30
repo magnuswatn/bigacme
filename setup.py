@@ -11,6 +11,7 @@ setup(
     license="MIT",
     packages=find_packages(),
     install_requires=[
+        "attrs",
         "click>=7.0",
         "bigsuds",
         "josepy",
