@@ -149,7 +149,7 @@ def cli(config_dir):
     "partition", callback=utils.validate_bigip_name, autocompletion=partition_completer
 )
 @click.argument("csrname", callback=utils.validate_bigip_name)
-@click.option("-dns", is_flag=True, help="Use DNS validation instead of HTTP.")
+@click.option("--dns", is_flag=True, help="Use DNS validation instead of HTTP.")
 @need_configuration()
 @handle_exceptions
 def new_cert(partition, csrname, dns, configuration):
