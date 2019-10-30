@@ -84,7 +84,7 @@ def test_load_plugin_wrong_type():
     with mock.patch("bigacme.plugin.iter_entry_points", mock_entry_points):
         with pytest.raises(bigacme.plugin.PluginError) as excinfo:
             bigacme.plugin.get_plugin(_generate_dummy_config())
-        assert "Plugin is not a valid bigacme plugin" in str(excinfo)
+        assert "Plugin is not a valid bigacme plugin" in str(excinfo.value)
 
 
 def test_load_several_plugins():
