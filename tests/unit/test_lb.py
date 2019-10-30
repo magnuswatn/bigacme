@@ -10,9 +10,11 @@ def mocked_bigsuds(hostname, username, password, verify):
     if hostname == "active":
         lb = mock.Mock()
         lb.System.Failover.get_failover_state.return_value = "FAILOVER_STATE_ACTIVE"
+        lb.with_session_id.return_value = lb
     elif hostname == "standby":
         lb = mock.Mock()
         lb.System.Failover.get_failover_state.return_value = "FAILOVER_STATE_STANDBY"
+        lb.with_session_id.return_value = lb
     elif hostname == "broken":
         lb = mock.Mock()
         lb.System.Failover.get_failover_state.side_effect = ConnectionError()
@@ -39,6 +41,7 @@ def test_create_from_config__with_first_active(mock_bigsuds):
     )
     assert lb.bigip.System.Failover.get_failover_state.called
     assert not lb.bigip.System.SystemInfo.get_uptime.called
+    assert lb.bigip.with_session_id.called
 
 
 @mock.patch("bigacme.lb.bigsuds.BIGIP", side_effect=mocked_bigsuds)
@@ -61,6 +64,7 @@ def test_create_from_config_with_second_active(mock_bigsuds):
     )
     assert lb.bigip.System.Failover.get_failover_state.called
     assert not lb.bigip.System.SystemInfo.get_uptime.called
+    assert lb.bigip.with_session_id.called
 
 
 @mock.patch("bigacme.lb.bigsuds.BIGIP", side_effect=mocked_bigsuds)
@@ -82,6 +86,7 @@ def test_create_from_config_first_unavailable(mock_bigsuds):
         == "FAILOVER_STATE_ACTIVE"
     )
     assert lb.bigip.System.Failover.get_failover_state.called
+    assert lb.bigip.with_session_id.called
 
 
 @mock.patch("bigacme.lb.bigsuds.BIGIP", side_effect=mocked_bigsuds)
@@ -103,6 +108,7 @@ def test_create_from_config_second_unavailable(mock_bigsuds):
         == "FAILOVER_STATE_ACTIVE"
     )
     assert lb.bigip.System.Failover.get_failover_state.called
+    assert lb.bigip.with_session_id.called
 
 
 @mock.patch("bigacme.lb.bigsuds.BIGIP", side_effect=mocked_bigsuds)
@@ -155,6 +161,7 @@ def test_create_from_config_standalone(mock_bigsuds):
     lb = bigacme.lb.LoadBalancer.create_from_config(config)
     assert not lb.bigip.System.Failover.get_failover_state.called
     assert lb.bigip.System.SystemInfo.get_uptime.called
+    assert lb.bigip.with_session_id.called
 
 
 def test_upload_certificate_access_denied():

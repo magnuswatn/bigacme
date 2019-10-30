@@ -13,37 +13,25 @@ logging.getLogger("suds.client").setLevel(logging.CRITICAL)
 class LoadBalancerError(Exception):
     """Superclass for all load balancer exceptions."""
 
-    pass
-
 
 class CouldNotConnectToBalancerError(LoadBalancerError):
     """Raised when a connection to the (active) load balancer could not be made"""
-
-    pass
 
 
 class PartitionNotFoundError(LoadBalancerError):
     """Raised when the partition was not found"""
 
-    pass
-
 
 class CSRNotFoundError(LoadBalancerError):
     """Raised when the CSR was not found on the device"""
-
-    pass
 
 
 class AccessDeniedError(LoadBalancerError):
     """Raised when the device denies access"""
 
-    pass
-
 
 class NotFoundError(LoadBalancerError):
     """Raised when the specified resource was not found on the load balancer"""
-
-    pass
 
 
 @attr.s
@@ -66,7 +54,7 @@ class LoadBalancer:
             try:
                 if lb1.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
                     logger.debug("Using '%s' as active load balancer", config.lb1)
-                    return cls(lb1, partition, datagroup)
+                    return cls(lb1.with_session_id(), partition, datagroup)
 
             except bigsuds.OperationFailed:
                 logger.exception("Could not get failover status from '%s'", config.lb1)
@@ -74,7 +62,7 @@ class LoadBalancer:
             try:
                 if lb2.System.Failover.get_failover_state() == "FAILOVER_STATE_ACTIVE":
                     logger.debug("Using '%s' as active load balancer", config.lb2)
-                    return cls(lb2, partition, datagroup)
+                    return cls(lb2.with_session_id(), partition, datagroup)
             except bigsuds.OperationFailed:
                 logger.exception("Could not get failover status from '%s'", config.lb2)
 
@@ -89,7 +77,7 @@ class LoadBalancer:
                 lb1.System.SystemInfo.get_uptime()
             except bigsuds.OperationFailed as error:
                 raise CouldNotConnectToBalancerError(error) from error
-            return cls(lb1, partition, datagroup)
+            return cls(lb1.with_session_id(), partition, datagroup)
 
     def send_challenge(self, domain: str, path: str, string: str) -> None:
         """Sends the challenge to the Big-IP"""

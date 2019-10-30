@@ -6,6 +6,7 @@ import tempfile
 from collections import namedtuple
 
 import pytest
+import bigsuds
 import OpenSSL
 from f5.bigip import ManagementRoot
 
@@ -45,6 +46,13 @@ def _generate_csr(cn, san):
 def _generate_password():
     chars = string.ascii_uppercase + string.ascii_lowercase + string.digits
     return "".join(random.SystemRandom().choice(chars) for _ in range(32))
+
+
+@pytest.fixture(scope="module")
+def temp_partition(rest_lb):
+    partition = rest_lb.tm.auth.partitions.partition.create(name="bigacmeTestPartition")
+    yield "bigacmeTestPartition"
+    partition.delete()
 
 
 @pytest.fixture(scope="module")
@@ -117,7 +125,9 @@ def test_get_csr_not_existing_Partition(lb, rest_lb):
         lb.get_csr("NotAPartition", "NotACsr")
 
 
-def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
+def test_get_csr_no_access(
+    rest_lb, opt_lb, temp_partition, opt_datagroup, opt_partition
+):
     """Test that when a user does not have access to the partition,
     we correctly raise an AccessDeniedError.
 
@@ -125,7 +135,6 @@ def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
     a csr from the partition. This should fail with a AccessDeniedError.
     """
     password = _generate_password()
-    partition = rest_lb.tm.auth.partitions.partition.create(name="bigacmeTestPartition")
 
     partition_access = [{"role": "guest", "name": "Common"}]
     user = rest_lb.tm.auth.users.user.create(
@@ -149,9 +158,8 @@ def test_get_csr_no_access(rest_lb, opt_lb, opt_datagroup, opt_partition):
     bigip = bigacme.lb.LoadBalancer.create_from_config(config)
 
     with pytest.raises(bigacme.lb.AccessDeniedError):
-        bigip.get_csr("bigacmeTestPartition", "anyName")
+        bigip.get_csr(temp_partition, "anyName")
 
-    partition.delete()
     user.delete()
 
 
@@ -169,3 +177,27 @@ def test_upload_certificate_nonexisting_partition(lb):
         lb.upload_certificate(
             "NotAPartition", "test_upload_certificate_certificate", [cert]
         )
+
+
+def test_distinct_sessions(
+    lb, rest_lb, temp_partition, opt_username, opt_password, opt_lb
+):
+    """
+    Tests that bigacme uses it's own session, so that another API call with the
+    same user won't mess with bigacmes session.
+    """
+
+    cert = _generate_certificate(0, 9_999_999)
+    lb.upload_certificate(temp_partition, "test_distinct_sessions_certificate", [cert])
+    rest_lb.tm.sys.crypto.certs.cert.load(
+        partition=temp_partition, name="test_distinct_sessions_certificate.crt"
+    ).delete()
+
+    active_partition1 = lb.bigip.System.Session.get_active_folder()
+    assert active_partition1 == f"/{temp_partition}"
+
+    bigip = bigsuds.BIGIP(opt_lb, opt_username, opt_password, verify=True)
+    bigip.System.Session.set_active_folder("/Common")
+
+    active_partition2 = lb.bigip.System.Session.get_active_folder()
+    assert active_partition1 == active_partition2
