@@ -281,7 +281,7 @@ def renew(configuration):
             "Renewing cert: '%s' from partition: '%s' using '%s'",
             renewal.name,
             renewal.partition,
-            renewal.validation_method,
+            renewal.validation_method.value,
         )
 
         if renewal.validation_method == cert.ValidationMethod.DNS01 and not dns_plugin:
