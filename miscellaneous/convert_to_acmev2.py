@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import uuid
 import configparser
 
 from pathlib import Path
@@ -122,12 +123,23 @@ class ConfigurationMigrator:
 
             loaded["cert"] = cert
 
-            path.write_text(json.dumps(loaded, indent=4, sort_keys=True))
+            try:
+                path.write_text(json.dumps(loaded, indent=4, sort_keys=True))
+            except IOError as error:
+                if error.errno == 13:
+                    # It may be owned by another user,
+                    # try to recreate it.
+                    temp_path = Path(str(uuid.uuid1()))
+                    path.rename(temp_path)
+                    path.write_text(json.dumps(loaded, indent=4, sort_keys=True))
+                    temp_path.unlink()
+                else:
+                    raise
 
     def get_new_config(self):
         configtp = namedtuple("Config", ["ca", "ca_proxy", "cm_account"])
         if self.config.getboolean("Certificate Authority", "use proxy"):
-            ca_proxy = config.get("Certificate Authority", "proxy")
+            ca_proxy = self.config.get("Certificate Authority", "proxy")
         else:
             ca_proxy = False
 
