@@ -7,6 +7,7 @@ import getpass
 import datetime
 import logging
 import logging.config
+from pathlib import Path
 from configparser import NoSectionError, NoOptionError
 
 import click
@@ -362,21 +363,47 @@ def remove(partition, csrname, configuration):
 
 @cli.command(name="revoke", help="Revoke a certificate.")
 @click.argument(  # type: ignore
-    "partition", callback=utils.validate_bigip_name, autocompletion=partition_completer
+    "partition",
+    callback=utils.validate_bigip_name,
+    autocompletion=partition_completer,
+    required=False,
 )
 @click.argument(  # type: ignore
-    "csrname", callback=utils.validate_bigip_name, autocompletion=csrname_completer
+    "csrname",
+    callback=utils.validate_bigip_name,
+    autocompletion=csrname_completer,
+    required=False,
+)
+@click.option(
+    "--cert-path", type=click.File(), help="An arbitrary certificate to revoke."
 )
 @need_configuration()
 @handle_exceptions
-def revoke(partition, csrname, configuration):
+def revoke(partition, csrname, cert_path, configuration):
     """Revokes a certificate"""
 
-    try:
-        certificate = cert.Certificate.get(partition, csrname)
-    except cert.CertificateNotFoundError:
-        click.secho("The specified certificate was not found.", fg="yellow", err=True)
-        sys.exit(2)
+    if (partition or csrname) and cert_path:
+        raise click.BadArgumentUsage(
+            "partition/csrname and --cert-path are mutually exclusive."
+        )
+
+    if partition and csrname:
+        try:
+            certificate = cert.Certificate.get(partition, csrname)
+        except cert.CertificateNotFoundError:
+            click.secho(
+                "The specified certificate was not found.", fg="yellow", err=True
+            )
+            sys.exit(2)
+        pem_cert = certificate.cert
+    elif cert_path:
+        certificate = None
+        pem_cert = cert_path.read()
+    else:
+        if partition:
+            raise click.UsageError("Missing argument CSRNAME")
+        if csrname:
+            raise click.UsageError("Missing argument PARTITION")
 
     click.echo(
         f"This will {click.style('REVOKE', bold=True)} the specified certificate. "
@@ -412,14 +439,19 @@ def revoke(partition, csrname, configuration):
     reason = int(choice)
 
     acme_ca = ca.CertificateAuthority.create_from_config(configuration)
-    acme_ca.revoke_certifciate(certificate.cert, reason)
-    certificate.delete()
-    logger.info(
-        "User '%s' revoked cert '%s' in partition '%s'",
-        getpass.getuser(),
-        csrname,
-        partition,
-    )
+    acme_ca.revoke_certifciate(pem_cert, reason)
+    if certificate is not None:
+        certificate.delete()
+        logger.info(
+            "User '%s' revoked cert '%s' in partition '%s'",
+            getpass.getuser(),
+            csrname,
+            partition,
+        )
+    else:
+        logger.info(
+            "User '%s' revoked a cert from file.", getpass.getuser(),
+        )
     click.secho(f"Certificate revoked.", fg="green")
 
 
