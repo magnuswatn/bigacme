@@ -108,7 +108,7 @@ class CertificateAuthority:
         acme_client = client.ClientV2(directory, network)
         return cls(kid, key, acme_client, account_file)
 
-    def _create_account_key(self):
+    def _create_account_key(self) -> None:
         """Creates an account key"""
         logger.debug("Generating account key")
         private_key = rsa.generate_private_key(
@@ -117,7 +117,7 @@ class CertificateAuthority:
         self.key = jose.JWKRSA(key=private_key)
         self.client.net.key = self.key
 
-    def _save_account(self):
+    def _save_account(self) -> None:
         """Saves the account key and id to the file specified in the config"""
         if self.account_file.exists():
             raise AccountInfoExistsError()
@@ -187,7 +187,7 @@ class CertificateAuthority:
                 )
         return challenges_to_be_solved
 
-    def answer_challenges(self, challenges):
+    def answer_challenges(self, challenges) -> None:
         """Tells the CA that the challenges has been solved"""
         for challenge in challenges:
             logger.debug("Answering challenge for '%s'", challenge.identifier)
