@@ -26,23 +26,13 @@ class CertificateNotFoundError(CertError):
 
     pass
 
-
-class CertEnum(Enum):
-    @classmethod
-    def from_string(cls, string):
-        for member in cls:
-            if member.value == string:
-                return member
-        raise ValueError(f"'{string}' not in enum")
-
-
-class Status(CertEnum):
+class Status(Enum):
     NEW = "New"
     INSTALLED = "Installed"
     TO_BE_INSTALLED = "To be installed"
 
 
-class ValidationMethod(CertEnum):
+class ValidationMethod(Enum):
     HTTP01 = "http-01"
     DNS01 = "dns-01"
 
@@ -163,8 +153,8 @@ class Certificate:
         not_after = datetime.strptime(loaded.pop("not_after"), "%Y-%m-%dT%H:%M:%S")
         not_before = datetime.strptime(loaded.pop("not_before"), "%Y-%m-%dT%H:%M:%S")
 
-        status = Status.from_string(loaded.pop("status"))
-        validation_method = ValidationMethod.from_string(
+        status = Status(loaded.pop("status"))
+        validation_method = ValidationMethod(
             # default to http-01 if not specified
             # (for backwards compability)
             loaded.pop("validation_method", "http-01")

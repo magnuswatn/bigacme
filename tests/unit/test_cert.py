@@ -63,12 +63,6 @@ def _generate_csr(cn, san):
     ).decode()
 
 
-def test_unknown_validationmethod_enum():
-    with pytest.raises(ValueError) as error:
-        cert_enum = bigacme.cert.ValidationMethod.from_string("what-01")
-    assert str(error.value) == "'what-01' not in enum"
-
-
 def test_get_certs_that_need_action():
     configtp = namedtuple("Config", ["cm_renewal_days", "cm_delayed_days"])
     config = configtp(cm_renewal_days=12, cm_delayed_days=4)
