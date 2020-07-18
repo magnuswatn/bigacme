@@ -18,13 +18,10 @@ logger = logging.getLogger(__name__)
 class CertError(Exception):
     """Superclass for all cert exceptions."""
 
-    pass
-
 
 class CertificateNotFoundError(CertError):
     """Raised when the certificate was not found"""
 
-    pass
 
 class Status(Enum):
     NEW = "New"
@@ -182,7 +179,7 @@ class Certificate:
         path = Path("cert", f"{partition}_{name}.json")
         if path.exists():
             return cls.load(path)
-        raise CertificateNotFoundError
+        raise CertificateNotFoundError()
 
     @property
     def cert(self):
