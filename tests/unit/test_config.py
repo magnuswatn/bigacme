@@ -1,14 +1,15 @@
 """Tests for config.py"""
-import os
-import re
-import sys
-import stat
-import shutil
-import tempfile
 import fileinput
 import logging.config
+import os
+import re
+import shutil
+import stat
+import sys
+import tempfile
 
 import pytest
+
 import bigacme.config
 
 ORG_CWD = os.getcwd()

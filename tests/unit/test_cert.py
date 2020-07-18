@@ -1,15 +1,15 @@
+import json
 import os
 import pwd
-import json
 import shutil
 import tempfile
-from unittest.mock import MagicMock
-from pathlib import Path
 from collections import namedtuple
 from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import MagicMock
 
-import pytest
 import OpenSSL
+import pytest
 
 import bigacme.cert
 

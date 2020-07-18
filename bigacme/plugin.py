@@ -1,5 +1,6 @@
 """Functions that interacts with DNS plugins"""
 import logging
+
 from pkg_resources import iter_entry_points
 
 

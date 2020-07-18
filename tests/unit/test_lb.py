@@ -1,8 +1,9 @@
-import mock
 from collections import namedtuple
+
+import mock
+import pytest
 from bigsuds import ConnectionError, ServerError
 
-import pytest
 import bigacme.lb
 
 

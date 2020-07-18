@@ -1,19 +1,18 @@
 """Functions that interacts with the CA"""
-import os
-import re
+import datetime
 import json
 import logging
-import datetime
-from pathlib import Path
+import os
+import re
 from collections import namedtuple
+from pathlib import Path
 
 import attr
-import OpenSSL
-
 import josepy as jose
+import OpenSSL
 from acme import client
-from acme import messages
 from acme import errors as acme_errors
+from acme import messages
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 

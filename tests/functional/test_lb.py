@@ -1,13 +1,13 @@
 import os
-import sys
 import random
 import string
+import sys
 import tempfile
 from collections import namedtuple
 
-import pytest
 import bigsuds
 import OpenSSL
+import pytest
 from f5.bigip import ManagementRoot
 
 import bigacme.lb

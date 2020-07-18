@@ -1,16 +1,14 @@
 """Functional tests for main.py"""
-import re
-import os
-import sys
 import datetime
 import fileinput
+import os
+import re
 import subprocess
+import sys
 
 import pytest
 
-from bigacme import cert
-from bigacme import version
-from bigacme import config
+from bigacme import cert, config, version
 
 
 def empty_dir(func):

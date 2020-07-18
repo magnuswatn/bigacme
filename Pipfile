@@ -7,12 +7,12 @@ name = "pypi"
 e1839a8 = {path = ".",editable = true}
 
 [dev-packages]
-pylint = "*"
 "f5-sdk" = "*"
 pytest = "*"
 pytest-cov = "*"
 black = "==19.10b0"
 mypy = "*"
+isort = "*"
 
 [requires]
 python_version = "3.6"

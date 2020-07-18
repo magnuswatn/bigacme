@@ -1,19 +1,18 @@
 """Functional tests for ca.py"""
+import fileinput
 import os
 import re
-import sys
-import time
-import stat
 import shutil
-import tempfile
-import fileinput
+import stat
 import subprocess
+import sys
+import tempfile
+import time
 from collections import namedtuple
 
 import pytest
 
-from bigacme import config
-from bigacme import ca
+from bigacme import ca, config
 
 
 def use_pebble(func):

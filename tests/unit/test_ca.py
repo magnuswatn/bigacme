@@ -1,14 +1,15 @@
 """Tests for ca.py"""
+from unittest import mock
+from unittest.mock import MagicMock
+
 import pytest
+from acme import challenges
+from acme import errors as acme_errors
+from acme import messages
+
 from bigacme import ca
 from bigacme.ca import CAError, NoDesiredChallenge
 from bigacme.cert import ValidationMethod
-from acme import messages
-from acme import challenges
-from acme import errors as acme_errors
-
-from unittest import mock
-from unittest.mock import MagicMock
 
 
 @pytest.fixture()

@@ -1,24 +1,18 @@
 """The main program"""
-import os
-import sys
-import errno
-import string
-import getpass
 import datetime
+import errno
+import getpass
 import logging
 import logging.config
-from configparser import NoSectionError, NoOptionError
+import os
+import string
+import sys
+from configparser import NoOptionError, NoSectionError
 
 import click
 from acme import errors as acme_errors
 
-from . import config
-from . import cert
-from . import utils
-from . import ca
-from . import lb
-from . import plugin
-from . import version
+from . import ca, cert, config, lb, plugin, utils, version
 from .vendor import click_spinner
 
 # pylint: disable=W0613

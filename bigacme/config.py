@@ -1,9 +1,9 @@
 """Handles the configuration"""
-import os
-import logging
 import configparser
-from pathlib import Path
+import logging
+import os
 from collections import namedtuple
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

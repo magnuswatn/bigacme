@@ -1,13 +1,12 @@
-import os
 import json
+import os
 import shutil
 import tempfile
 
 import pytest
 
-
-import bigacme.main
 import bigacme.cert
+import bigacme.main
 
 ORG_CWD = os.getcwd()
 

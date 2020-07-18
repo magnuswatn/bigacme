@@ -1,16 +1,15 @@
 """Functions related to certificates"""
-import os
-import uuid
 import json
 import logging
-
+import os
+import uuid
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from datetime import datetime, timedelta
 
 import attr
-from cryptography.hazmat.backends import default_backend
 from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 
 logger = logging.getLogger(__name__)
 

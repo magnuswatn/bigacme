@@ -3,6 +3,7 @@ from collections import namedtuple
 
 import mock
 import pytest
+
 import bigacme.plugin
 
 
