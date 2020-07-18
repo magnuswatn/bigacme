@@ -1,7 +1,6 @@
 """Handles the configuration"""
 import configparser
 import logging
-import os
 from collections import namedtuple
 from pathlib import Path
 

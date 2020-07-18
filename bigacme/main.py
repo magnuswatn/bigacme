@@ -1,11 +1,9 @@
 """The main program"""
-import datetime
 import errno
 import getpass
 import logging
 import logging.config
 import os
-import string
 import sys
 from configparser import NoOptionError, NoSectionError
 

@@ -2,9 +2,7 @@
 import datetime
 import json
 import logging
-import os
 import re
-from collections import namedtuple
 from pathlib import Path
 
 import attr
