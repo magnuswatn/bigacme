@@ -1,6 +1,6 @@
 from collections import namedtuple
+from unittest import mock
 
-import mock
 import pytest
 from bigsuds import ConnectionError, ServerError
 

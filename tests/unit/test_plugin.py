@@ -1,7 +1,7 @@
 """Tests for plugin.py"""
 from collections import namedtuple
+from unittest import mock
 
-import mock
 import pytest
 
 import bigacme.plugin
