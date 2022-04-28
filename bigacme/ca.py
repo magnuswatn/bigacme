@@ -49,6 +49,10 @@ class ReceivedInvalidCertificateError(CAError):
     """Raised when the certificate returned from the CA as malformed."""
 
 
+class CertificateOrderFailedError(CAError):
+    """Raised when it was not possible to create an order with the CA"""
+
+
 @attr.s
 class ChallengeToBeSolved:
     """
@@ -141,7 +145,10 @@ class CertificateAuthority:
 
     def order_new_cert(self, csr: str) -> messages.OrderResource:
         """Orders a new certificate"""
-        return self.client.new_order(csr)
+        try:
+            return self.client.new_order(csr)
+        except acme_errors.Error as error:
+            raise CertificateOrderFailedError(error) from error
 
     def get_challenges_to_solve_from_order(self, order, validation_method):
         """
